@@ -1,9 +1,7 @@
 # Code written by Josh Gorin to allow for an additional input into the neighborhood optimizer function
 import neighborhood as nbr
-import pandas as pd
 from diffusion_optimizer.neighborhood.objective import Objective
-from diffusion_optimizer.neighborhood.dataset import Dataset
-
+import bisect
 
 class Optimizer(nbr.Searcher):
     
@@ -22,6 +20,7 @@ class Optimizer(nbr.Searcher):
             maximize=maximize, 
             verbose=verbose
         )
+        self.objective = objective
         
     def update(self, num_iter=10):
         """
@@ -40,17 +39,13 @@ class Optimizer(nbr.Searcher):
             while self._queue:
                 param = self._queue.pop()
                 result = self._objective(param)
-                self._sample.append({
-                    'param': param,
-                    'result': result,
-                    'iter': self._iter
-                    })
-             
-            # prepare for next iteration
-            self._sample.sort(key=lambda x: x['result'], reverse=self._maximize)
+                res = { 'param': param, 'result': result, 'iter': self._iter }
+                bisect.insort_left(self._sample, res, key=lambda x: x['result'])
+                
             self._iter += 1
             if self._verbose:
                 print(self)
+                
     def __repr__(self):
         try:
             out = '{}(iteration={}, samples={}, best={:.20f})'.format(

@@ -6,6 +6,7 @@ class DiffusionObjective(Objective):
     
     # override evaluate function
     def evaluate(self, X):
+        data = self.dataset
         torch.pi = torch.acos(torch.zeros(1)).item() * 2
         # Below here will eventually get turned into a function
         # Code written by Marissa Tremblay and modified/transcribed into Python by Drew Gorin.
@@ -22,7 +23,6 @@ class DiffusionObjective(Objective):
         #Time both of these
         #X = torch.from_numpy(X)
         X = torch.as_tensor(X)
-        data = self.dataset
         # Unpack the parameters and spit out a high misfit value if constraints are violated
         if len(X) <= 3:
             ndom = 1
@@ -73,4 +73,4 @@ class DiffusionObjective(Objective):
         #     if torch.round(Fi_MDD[-2],decimals=2) >= 1:
         #          return 10**10
         # Return the sum of the residuals
-        return torch.sum(misfit)
+        return torch.sum(misfit).item()

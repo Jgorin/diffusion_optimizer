@@ -25,9 +25,8 @@ def tune_parameters(
 ):
     
     objective = DiffusionObjective(Dataset(pd.read_csv(nameOfExperimentalResultsFile)))
-    for i in num_sampToTry:
-        j=i
-        while j <=100:
+    for i in num_ResampToTry:
+        for j in num_sampToTry:
 
             misfit = 10**11
             counter = 0
@@ -37,28 +36,23 @@ def tune_parameters(
                     objective=objective,
                     names = names,
                     limits=limits, 
-                    num_samp=8, #number of random samples taken at each iteration
-                    num_resamp=4, #number of best Voronoi polygons sampled at each iteration-- must be smaller than num_samp
+                    num_samp=j, #number of random samples taken at each iteration
+                    num_resamp=i, #number of best Voronoi polygons sampled at each iteration-- must be smaller than num_samp
                     maximize=False,
                     verbose=True
                     )
             start_time = time.time()
             didNotconverge = 0
-            numIters = 0
             while (misfit >= threshold) and (didNotconverge == 0): # While misfit is below the threshold and we haven't failed to converge
                 srch.update(100)
                 misfit = srch.sample[0]["result"]
-                numIters = numIters+1
-                if numIters > 2000:
+                if srch._iter > 2000:
                     didNotconverge = 1
-                elif (numIters > 100) and (srch.sample[0]["result"] == srch.sample[75]["result"]):
-                    didNotConverge = 1
             if didNotconverge != 1: #This means we converged
                 misfitVals[i,j] = misfit
                 durations[i,j] = (time.time() - start_time)
-                numIterations4Save[i,j] = numIters
-                j=j+1
-
-    np.savetxt(f"{output_path}/misfitVals.csv", misfitVals,delimiter = ',')
-    np.savetxt(f"{output_path}/numiters.csv", numIterations4Save, delimiter = ',')
-    np.savetxt(f"{output_path}/durations.csv", durations, delimiter = ',')
+                numIterations4Save[i,j] = srch._iter
+                
+    np.savetxt(f"{output_dir}/misfitVals.csv", misfitVals,delimiter = ',')
+    np.savetxt(f"{output_dir}/numiters.csv", numIterations4Save, delimiter = ',')
+    np.savetxt(f"{output_dir}/durations.csv", durations, delimiter = ',')
