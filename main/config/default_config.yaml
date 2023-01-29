@@ -1,0 +1,16 @@
+nameOfInputCSVFile: "3Domains.csv"
+nameOfExperimentalResultsFile: "data4Optimizer.csv"
+
+threshold: 0.01
+
+# sample space
+num_sampToTry: [10, 21]
+num_ResampToTry: [5, 10]
+
+limits:
+  Ea: [70, 110]
+  LnDaa1: [0, 25]
+  LnD0aa2: [0, 25]
+  LnD0aa3: [0, 25]
+  Frac1: [0.0000000001,1]
+  Frac2: [0.0000000001,1]
