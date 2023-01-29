@@ -2,7 +2,7 @@
 
 ## Installation
 1. Download docker-desktop at `https://www.docker.com/` or via homebrew with `brew install docker`
-2. Clone this repo with `git clone REPO`
+2. Clone this repo with `git clone https://github.com/Jgorin/diffusion_optimizer`
 3. In the root of this directory run `make build`
 4. Run `make run` to create a container with the built docker image
 
