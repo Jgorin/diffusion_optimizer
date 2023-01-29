@@ -5,6 +5,10 @@ from diffusion_optimizer.neighborhood.optimizer import Optimizer
 from diffusion_optimizer.neighborhood.dataset import Dataset
 import numpy as np
 import pandas as pd
+import os
+
+file_path = os.path.dirname(os.path.realpath(__file__))
+output_path = f"{file_path}/../../../main/output"
 
 def tune_parameters(
     nameOfInputCSVFile="3Domains.csv", 
@@ -16,7 +20,8 @@ def tune_parameters(
     numIterations4Save=np.ones([100,101])*10*11, 
     durations=np.ones([101,101])*10*11, 
     names=["Ea","LnD0aa1","LnD0aa2","LnD0aa3","Frac1","Frac2"],
-    limits=[(70,110),(0,25),(0,25),(0,25),(10**(-10),1),(10**(-10),1)]
+    limits=[(70,110),(0,25),(0,25),(0,25),(10**(-10),1),(10**(-10),1)],
+    output_dir=output_path
 ):
     
     objective = DiffusionObjective(Dataset(pd.read_csv(nameOfExperimentalResultsFile)))
@@ -54,6 +59,6 @@ def tune_parameters(
                 numIterations4Save[i,j] = numIters
                 j=j+1
 
-    np.savetxt("misfitVals.csv", misfitVals,delimiter = ',')
-    np.savetxt("numiters.csv", numIterations4Save, delimiter = ',')
-    np.savetxt("durations.csv", durations, delimiter = ',')
+    np.savetxt(f"{output_path}/misfitVals.csv", misfitVals,delimiter = ',')
+    np.savetxt(f"{output_path}/numiters.csv", numIterations4Save, delimiter = ',')
+    np.savetxt(f"{output_path}/durations.csv", durations, delimiter = ',')

@@ -51,3 +51,13 @@ class Optimizer(nbr.Searcher):
             self._iter += 1
             if self._verbose:
                 print(self)
+    def __repr__(self):
+        try:
+            out = '{}(iteration={}, samples={}, best={:.20f})'.format(
+            self.__class__.__name__,
+            self._iter,
+            len(self._sample),
+            self._sample[0]['result'])
+        except IndexError:
+            out = '{}(iteration=0, samples=0, best=None)'.format(self.__class__.__name__)
+        return out

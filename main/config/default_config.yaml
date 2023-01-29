@@ -4,8 +4,8 @@ nameOfExperimentalResultsFile: "data4Optimizer.csv"
 threshold: 0.01
 
 # sample space
-num_sampToTry: [10, 21]
-num_ResampToTry: [5, 10]
+num_sampToTry: [50, 51]
+num_ResampToTry: [20, 21]
 
 limits:
   Ea: [70, 110]
