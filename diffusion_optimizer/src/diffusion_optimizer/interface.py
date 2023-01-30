@@ -53,6 +53,7 @@ def main():
             config["threshold"],
             list2range(config["num_sampToTry"]),
             list2range(config["num_ResampToTry"]),
+            config["num_epsilonsToTry"],
             misfitVals=np.ones([101,101])*10*11,
             numIterations4Save=np.ones([100,101])*10*11,
             durations=np.ones([101,101])*10*11,

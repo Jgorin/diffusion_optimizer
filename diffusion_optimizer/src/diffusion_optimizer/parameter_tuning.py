@@ -16,6 +16,7 @@ def tune_parameters(
     threshold=0.01, 
     num_sampToTry=range(3,21), 
     num_ResampToTry=range(3,20), 
+    num_epsilonsToTry=[0.1, 0.15, 0.2, 0.25],
     misfitVals=np.ones([101,101])*10*11, 
     numIterations4Save=np.ones([100,101])*10*11, 
     durations=np.ones([101,101])*10*11, 
@@ -27,31 +28,32 @@ def tune_parameters(
     objective = DiffusionObjective(Dataset(pd.read_csv(nameOfExperimentalResultsFile)))
     for i in num_ResampToTry:
         for j in num_sampToTry:
-
-            misfit = 10**11
-            counter = 0
-            print("num_samp = " +str(j))
-            print("num_resamp = " +str(i))
-            srch = Optimizer(
-                    objective=objective,
-                    names = names,
-                    limits=limits, 
-                    num_samp=j, #number of random samples taken at each iteration
-                    num_resamp=i, #number of best Voronoi polygons sampled at each iteration-- must be smaller than num_samp
-                    maximize=False,
-                    verbose=True
-                    )
-            start_time = time.time()
-            didNotconverge = 0
-            while (misfit >= threshold) and (didNotconverge == 0): # While misfit is below the threshold and we haven't failed to converge
-                srch.update(100)
-                misfit = srch.sample[0]["result"]
-                if srch._iter > 2000:
-                    didNotconverge = 1
-            if didNotconverge != 1: #This means we converged
-                misfitVals[i,j] = misfit
-                durations[i,j] = (time.time() - start_time)
-                numIterations4Save[i,j] = srch._iter
+            for x in num_epsilonsToTry:
+                misfit = 10**11
+                print(f"num_samp: {j}")
+                print(f"num_resamp: {i}")
+                print(f"epsilon threshold: {x}")
+                srch = Optimizer(
+                        objective=objective,
+                        names = names,
+                        limits=limits, 
+                        num_samp=j, #number of random samples taken at each iteration
+                        num_resamp=i, #number of best Voronoi polygons sampled at each iteration-- must be smaller than num_samp
+                        epsilon_threshold=x,
+                        maximize=False,
+                        verbose=True
+                        )
+                start_time = time.time()
+                didNotconverge = 0
+                while (misfit >= threshold) and (didNotconverge == 0): # While misfit is below the threshold and we haven't failed to converge
+                    srch.update(100)
+                    misfit = srch.sample[0]["result"]
+                    if misfit > threshold:
+                        didNotConverge = 1
+                if didNotconverge != 1: #This means we converged
+                    misfitVals[i,j] = misfit
+                    durations[i,j] = (time.time() - start_time)
+                    numIterations4Save[i,j] = srch._iter
                 
     np.savetxt(f"{output_dir}/misfitVals.csv", misfitVals,delimiter = ',')
     np.savetxt(f"{output_dir}/numiters.csv", numIterations4Save, delimiter = ',')
