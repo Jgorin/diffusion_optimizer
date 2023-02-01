@@ -2,10 +2,10 @@ nameOfInputCSVFile: "3Domains.csv"
 nameOfExperimentalResultsFile: "data4Optimizer.csv"
 
 threshold: 0.01
-num_epsilonsToTry: [0.5, 0.4, 0.3] # average percentage of random values per pop
+num_epsilonsToTry: [0.0, 0.0, 0.0] # average percentage of random values per pop
 
 # sample space
-num_sampToTry: [200, 201]
+num_sampToTry: [250, 251]
 num_ResampToTry: [50, 51]
 
 limits:

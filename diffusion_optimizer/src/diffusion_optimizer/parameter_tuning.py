@@ -47,7 +47,7 @@ def tune_parameters(
                 didNotconverge = 0
                 while (misfit >= threshold) and (didNotconverge == 0): # While misfit is below the threshold and we haven't failed to converge
                     srch.update(100)
-                    misfit = srch.sample[0]["result"]
+                    misfit = srch.sample_manager._elites[0]._res
                     if misfit > threshold:
                         didNotConverge = 1
                 if didNotconverge != 1: #This means we converged
