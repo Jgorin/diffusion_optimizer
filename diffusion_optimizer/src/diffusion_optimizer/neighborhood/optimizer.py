@@ -2,13 +2,16 @@
 from re import S
 import neighborhood as nbr
 from diffusion_optimizer.neighborhood.objective import Objective
-import bisect
 import numpy as np
-from random import uniform
+from random import sample, uniform
 from diffusion_optimizer.neighborhood.neighborhood_sampler import SampleManager, Sample
+import math
 
 def adaptive_decay_greedy_epsilon(error, error_decay_rate, initial_epsilon):
     return initial_epsilon * np.exp(-error_decay_rate * error)
+
+def adaptive_sample_count(current_error, rate, intercept):
+    return int(min(1000, intercept + (math.exp(rate * current_error) - 1)))
 
 class Optimizer(nbr.Searcher):
     
@@ -34,16 +37,21 @@ class Optimizer(nbr.Searcher):
         """
         tweaked from original codebase to pass in training data into objective function
         """
+        resamp_samp_ratio = self._num_resamp / self._num_samp
+        
         for ii in range(num_iter):
             # udpate greedy epsilon
-            
             # If the first iteration take a random sample
-            if not self.sample_manager._samples:
+            if len(self.sample_manager._samples) == 0:
+                self.curr_num_samp = adaptive_sample_count(1, 20, self._num_samp * 0.08)
+                self.curr_num_resamp = int(resamp_samp_ratio * self.curr_num_samp)
+                self.sample_manager.set_num_samples(self.curr_num_samp)
                 self.current_epsilon_threshold = 0
-                self._random_sample(self._num_samp)
+                print(f"initial sample count: {self.curr_num_samp}")
+                self._random_sample(self.curr_num_samp)
             else:
-                self.current_epsilon_threshold = adaptive_decay_greedy_epsilon(self.sample_manager._elites[0]._res, 4, self.epsilon_threshold)
-                self._neighborhood_sample(self.current_epsilon_threshold, self._num_samp, self._num_resamp)
+                self.current_epsilon_threshold = adaptive_decay_greedy_epsilon(self.sample_manager._elites[0]._res, 15, self.epsilon_threshold)
+                self._neighborhood_sample(self.current_epsilon_threshold, self.curr_num_samp, self.curr_num_resamp)
                         
             # execute forward model for all samples in queue
             while self._queue:
@@ -51,6 +59,9 @@ class Optimizer(nbr.Searcher):
                 result = self._objective(param)
                 self.sample_manager.add_sample(Sample(result, self._iter, param, len(self.sample_manager._samples)))
                 
+            self.curr_num_samp = adaptive_sample_count(self.sample_manager._elites[0]._res, 20, self._num_samp * 0.08)
+            self.curr_num_resamp = int(resamp_samp_ratio * self.curr_num_samp)
+            self.sample_manager.set_num_samples(self.curr_num_samp)
             self._iter += 1
             if self._verbose:
                 print(self)
@@ -76,6 +87,7 @@ class Optimizer(nbr.Searcher):
             epsilon = uniform(0, 1)
             if epsilon <= epsilon_threshold:
                 self._queue.append(self._random_single_sample())
+                
             kk = ii % curr_num_resamp
             curr_elite = elites[kk]
             vk = elite_samps[kk,:]
@@ -123,4 +135,4 @@ class Optimizer(nbr.Searcher):
             self.sample_manager._elites[0]._res)
         except IndexError:
             out = '{}(iteration=0, samples=0, best=None)'.format(self.__class__.__name__)
-        return out + f" {self.current_epsilon_threshold}"
+        return out + f" {self.current_epsilon_threshold} {self.curr_num_samp}  {self.curr_num_resamp}"
