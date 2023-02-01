@@ -5,13 +5,13 @@ threshold: 0.01
 num_epsilonsToTry: [0.0, 0.0, 0.0] # average percentage of random values per pop
 
 # sample space
-num_sampToTry: [250, 251]
-num_ResampToTry: [50, 51]
+num_sampToTry: [500, 1000]
+num_ResampToTry: [10, 500]
 
 limits:
   Ea: [70, 110]
   LnDaa1: [0, 25]
   LnD0aa2: [0, 25]
   LnD0aa3: [0, 25]
-  Frac1: [0.0000000001,1]
-  Frac2: [0.0000000001,1]
+  Frac1: [0.01,1]
+  Frac2: [0.01,1]
