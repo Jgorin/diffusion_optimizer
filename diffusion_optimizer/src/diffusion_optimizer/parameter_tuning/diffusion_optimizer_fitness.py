@@ -48,7 +48,7 @@ def generate_trainable(dataset:Dataset, limits, names, max_iters, threshold):
                     return {"score": 10**10}
             
             t1 = time.time()
-            return {"score": t1 - t0}
+            return {"score": len(self.optimizer.sample_manager._samples)}
     
         def save_checkpoint(self, tmp_checkpoint_dir):
             print(tmp_checkpoint_dir)
