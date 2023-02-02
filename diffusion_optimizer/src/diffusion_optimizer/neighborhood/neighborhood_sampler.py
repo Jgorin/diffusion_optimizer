@@ -1,4 +1,5 @@
 import bisect
+import json
 
 class Sample:
     def __init__(self, res:float, iter:int, param:list[float], index: int):
@@ -10,6 +11,13 @@ class Sample:
     def is_better(self, sample, maximize):
         comparator = max if maximize == True else min
         return comparator(self._res, sample._res) == self._res
+
+    def to_dict(self):
+        return { "res": self._res, "iter": self._iter, "param": self._param.tolist() }
+    
+    def save_as_json(self, path):
+        with open(path, "w") as file:
+            json.dump(self.to_dict(), file, indent=4, sort_keys=True)
 
 class SampleManager:
     def __init__(self, samples:list[Sample]=None, elites:list[Sample]=None, num_samples:int=10, maximize=False):

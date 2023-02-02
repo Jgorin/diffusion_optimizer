@@ -1,11 +1,18 @@
 import argparse
-from diffusion_optimizer.parameter_tuning import tune_parameters
+# from diffusion_optimizer.parameter_tuning import tune_parameters
 from diffusion_optimizer.generate_inputs import generate_inputs
+from diffusion_optimizer.parameter_tuning.parameter_tuning_v2 import tune_parameters
 import yaml
 import numpy as np
 import os 
 import uuid
 import sys
+import pandas as pd
+from diffusion_optimizer.diffusion_objective import DiffusionObjective
+from diffusion_optimizer.neighborhood.objective import Objective
+
+from diffusion_optimizer.neighborhood.optimizer import Optimizer, OptimizerOptions
+from diffusion_optimizer.neighborhood.dataset import Dataset
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -44,25 +51,24 @@ def main():
     # generate inputs
     if args.generate_inputs:
         generate_inputs(args.input_csv_path, f"{args.output_path}/{config['nameOfExperimentalResultsFile']}")
-    
     # run parameter tuning
     if args.parameter_tuning:
-        tune_parameters(
-            f"{args.input_csv_path}/{config['nameOfInputCSVFile']}",
-            f"{args.output_path}/{config['nameOfExperimentalResultsFile']}",
-            config["threshold"],
-            list2range(config["num_sampToTry"]),
-            list2range(config["num_ResampToTry"]),
-            config["num_epsilonsToTry"],
-            misfitVals=np.ones([101,101])*10*11,
-            numIterations4Save=np.ones([100,101])*10*11,
-            durations=np.ones([101,101])*10*11,
-            names=names,
-            limits=limits,
-            output_dir=args.output_path
-        )
+        tune_parameters(args.config_path, f"{args.output_path}/{config['nameOfExperimentalResultsFile']}", args.output_path)
     
     else:
+        dataset = Dataset(pd.read_csv(f"{args.output_path}/{config['nameOfExperimentalResultsFile']}"))
+        objective = DiffusionObjective(dataset)
+        
+        options = OptimizerOptions(
+            num_samp_range=[8,800],
+            num_samp_decay=2.1,
+            resamp_to_samp_ratio = 0.4,
+            epsilon_range=[0.000001,0.00001],
+            epsilon_growth=0.01
+        )
+        
+        optimizer = Optimizer(objective, limits, names, options)
+        optimizer.update(1000)
         print("TODO: implement single pass process")
         pass
 

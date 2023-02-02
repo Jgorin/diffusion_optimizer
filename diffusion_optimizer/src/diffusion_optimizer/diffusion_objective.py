@@ -40,7 +40,7 @@ class DiffusionObjective(Objective):
 
         for i in range(len(lnD0aa)-1):
             if lnD0aa[i+1]>lnD0aa[i]:
-                return 10**10
+                return 10**3
             
         fwdModelResults = forwardModelKinetics(X,data)
 
@@ -68,7 +68,7 @@ class DiffusionObjective(Objective):
         misfit[trueFracMDD==0] = 1
         
         if torch.round(Fi_MDD[-1],decimals=2) != 1:
-            return 10**10
+            return 10**3
         
         #     if torch.round(Fi_MDD[-2],decimals=2) >= 1:
         #          return 10**10

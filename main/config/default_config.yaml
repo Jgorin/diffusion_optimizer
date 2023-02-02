@@ -1,14 +1,22 @@
 nameOfInputCSVFile: "3Domains.csv"
 nameOfExperimentalResultsFile: "data4Optimizer.csv"
 
+# threshold to converge
 threshold: 0.01
-num_epsilonsToTry: [0.0, 0.0, 0.0] # average percentage of random values per pop
+max_iters: 1000
 
-# sample space
-num_sampToTry: [500, 501]
-num_ResampToTry: [250, 251]
+# sample hyperparameter searchspace
+num_samp_min: [2, 50]          # min number of samples per epoch
+num_samp_max: [100, 1000]       # max number of samples per epoch
+num_samp_decay: [0.25, 3]         # decay rate for samples based on best error
+resamp_to_samp_ratio: [0.2, 0.8]  # ratio of samples to resamples
 
-limits:
+# greedy epsilon hyperparameter searchspace
+epsilon_min: [0.0000000001, 0.00000001]         # min greedy epsilon threshold
+epsilon_max: [0.0000000001, 0.00000001]         # max greedy epsilon threshold
+epsilon_growth: [0.00000001, 0.000000001]      # growth rate for epsilon threshold based on best error
+
+limits:                        
   Ea: [70, 110]
   LnDaa1: [0, 25]
   LnD0aa2: [0, 25]
