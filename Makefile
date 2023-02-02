@@ -1,4 +1,4 @@
-ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+ROOT_DIR:=C:/Users/andre/diffusion_optimizer
 
 build:
 	docker build . -t diffusion_optimizer
