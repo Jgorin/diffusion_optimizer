@@ -1,20 +1,25 @@
-nameOfInputCSVFile: "3Domains.csv"
+nameOfInputCSVFile: "KM95-28-Dc-1250um.csv"
 nameOfExperimentalResultsFile: "data4Optimizer.csv"
 
 # threshold to converge
 threshold: 0.01
-max_iters: 1000
+max_iters: 20000
 
 # sample hyperparameter searchspace
-num_samp_min: [2, 50]          # min number of samples per epoch
-num_samp_max: [100, 1000]       # max number of samples per epoch
+#num_samp_min: [2, 50]          # min number of samples per epoch
+num_samp_max: [800, 1000]       # max number of samples per epoch
+num_samp_ratio: [0.01,0.1]
 num_samp_decay: [0.25, 3]         # decay rate for samples based on best error
 resamp_to_samp_ratio: [0.2, 0.8]  # ratio of samples to resamples
 
 # greedy epsilon hyperparameter searchspace
-epsilon_min: [0.0000000001, 0.00000001]         # min greedy epsilon threshold
-epsilon_max: [0.0000000001, 0.00000001]         # max greedy epsilon threshold
-epsilon_growth: [0.00000001, 0.000000001]      # growth rate for epsilon threshold based on best error
+#epsilon_min: [0.0000000001, 0.00000001]         # min greedy epsilon threshold
+epsilon_max: [0.00000001, 0.0000001]         # max greedy epsilon threshold
+epsilon_growth: [0.000000001, 0.00000001]      # growth rate for epsilon threshold based on best error
+epsilon_ratio: [0.0000000001,1]
+
+# List of values to omit during fitting (Added by Drew)
+omitValueIndices: [1,2,3,4,5,6]
 
 limits:                        
   Ea: [70, 110]

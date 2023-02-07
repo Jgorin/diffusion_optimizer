@@ -1,5 +1,6 @@
 import bisect
 import json
+import numpy as np
 
 class Sample:
     def __init__(self, res:float, iter:int, param:list[float], index: int):
@@ -44,13 +45,18 @@ class SampleManager:
             
             # insert into elite set
             bisect.insort_left(self._elites, sample, key=lambda x: -1 * x._res if self._maximize else x._res)
-        
+
         self._samples.append(sample)
     
     def set_num_samples(self, num_samples):
         if self._num_samples > num_samples:
             self._elites = self._elites[:num_samples - 1]
         self._num_samples = num_samples
+    
+    def get_std(self):
+        top_scores = [elite._res for elite in self._elites]
+        return np.std(top_scores)
+
 
 def main():
     sm = SampleManager(num_samples=2, maximize=False)

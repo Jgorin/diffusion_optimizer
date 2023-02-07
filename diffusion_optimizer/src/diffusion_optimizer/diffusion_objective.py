@@ -7,6 +7,7 @@ class DiffusionObjective(Objective):
     # override evaluate function
     def evaluate(self, X):
         data = self.dataset
+        omitValueIndices = self.omitValueIndices
         torch.pi = torch.acos(torch.zeros(1)).item() * 2
         # Below here will eventually get turned into a function
         # Code written by Marissa Tremblay and modified/transcribed into Python by Drew Gorin.
@@ -60,12 +61,22 @@ class DiffusionObjective(Objective):
         trueFracMDD = Fi_MDD[1:]-Fi_MDD[0:-1]
         trueFracMDD = torch.concat((torch.unsqueeze(Fi_MDD[0],dim=-1),trueFracMDD),dim=-1)
         # Calculate the L1 loss 
+
+        
+        #Remove user-specified values to be omitted from the misfit calculation
+        indicesForPunishment = trueFracMDD == 0
+        if len(omitValueIndices) != 0:
+            TrueFracFi[omitValueIndices] = 0
+            trueFracMDD[omitValueIndices] = 0
+        
+        #Calculate L1 loss
         misfit = torch.absolute(TrueFracFi-trueFracMDD)
+
 
         # Assign penalty for each step if the model runs out of gas before the experiment did
 
         # Add a misfit penalty of 1 for each heating step that ran out of gas early
-        misfit[trueFracMDD==0] = 1
+        misfit[indicesForPunishment] = 1
         
         if torch.round(Fi_MDD[-1],decimals=2) != 1:
             return 10**3

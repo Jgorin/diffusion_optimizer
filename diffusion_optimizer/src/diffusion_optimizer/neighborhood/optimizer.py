@@ -14,23 +14,39 @@ def adaptive_sample_count(current_error, rate, intercept):
     return int(min(1000, intercept + (math.exp(rate * current_error) - 1)))
 
 def exponential_interpolation(min_val, max_val, rate, value):
+    if value > 1:
+
+        return max_val
+    if value < 0:
+
+        return min_val
+
     interpolated_value = min_val * (max_val / min_val) ** (rate * value)
+
     return interpolated_value
 
 class OptimizerOptions:
     def __init__(
         self,
-        num_samp_range:range,
+        #num_samp_range:range,
         num_samp_decay:float,
         resamp_to_samp_ratio:float,
-        epsilon_range:range,
+        #epsilon_range:range,
         epsilon_growth:float,
+        num_samp_max:int,
+        num_samp_ratio:float,
+        epsilon_range_ratio: float,
+        epsilon_max:float
+
     ):
-        self._num_samp_range = num_samp_range
+        self._num_samp_range = [int(num_samp_max*num_samp_ratio), num_samp_max]
+        self._epsilon_range = [epsilon_max*epsilon_range_ratio,epsilon_max]
         self._num_samp_decay = num_samp_decay
         self._resamp_to_samp_ratio = resamp_to_samp_ratio
-        self._epsilon_range = epsilon_range
+        #self._epsilon_range = epsilon_range
         self._epsilon_growth = epsilon_growth
+        
+
 
 class Optimizer(nbr.Searcher):
     def __init__(
@@ -40,7 +56,7 @@ class Optimizer(nbr.Searcher):
         names:list[str],
         options:OptimizerOptions,
         maximize:bool=False,
-        verbose:bool=True
+        verbose:bool=False
     ):
         # set initial parameter values
         if names == None:
@@ -61,7 +77,7 @@ class Optimizer(nbr.Searcher):
         self._objective = objective
         self._options = options
         self.sample_manager = SampleManager(num_samples=initial_samp_num, maximize=maximize)
-        
+ 
     def update(self, num_iter=10):
         """
         tweaked from original codebase to pass in training data into objective function
@@ -98,6 +114,7 @@ class Optimizer(nbr.Searcher):
             self._iter += 1
             if self._verbose:
                 print(self)
+
     
     def _random_single_sample(self):
         return np.random.rand(self._num_dim)*self._param_rng + self._param_min
@@ -174,7 +191,7 @@ class Optimizer(nbr.Searcher):
             self.get_best()._res)
         except IndexError:
             out = '{}(iteration=0, samples=0, best=None)'.format(self.__class__.__name__)
-        return out + f" {self.current_epsilon_threshold} {self.curr_num_samp}  {self.curr_num_resamp}"
+        return out + f" {self.current_epsilon_threshold} {self.curr_num_samp}  {self.curr_num_resamp} {self.sample_manager.get_std()}"
     
     def _validate_args(args):
         pass

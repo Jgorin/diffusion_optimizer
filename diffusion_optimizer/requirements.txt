@@ -5,3 +5,7 @@ neighborhood
 seaborn
 matplotlib
 pyyaml
+pyarrow
+fastparquet
+ray[tune]
+hyperopt

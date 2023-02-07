@@ -37,9 +37,10 @@ def list2range(list):
 
 def list2tuple(list):
     return (list[0], list[1])
-    
+
 def main():
     (args, config) = parse_args()
+
     if not os.path.exists(args.output_path):
         os.mkdir(args.output_path)
     
@@ -57,18 +58,25 @@ def main():
     
     else:
         dataset = Dataset(pd.read_csv(f"{args.output_path}/{config['nameOfExperimentalResultsFile']}"))
-        objective = DiffusionObjective(dataset)
+        #Drew added this to pass in the omitted values in misfit calc
+        objective = DiffusionObjective(dataset,config["omitValueIndices"])
         
         options = OptimizerOptions(
-            num_samp_range=[8,800],
-            num_samp_decay=2.1,
-            resamp_to_samp_ratio = 0.4,
-            epsilon_range=[0.000001,0.00001],
-            epsilon_growth=0.01
+            #num_samp_range=[8,800],
+            num_samp_decay=2.194608238125604,
+            resamp_to_samp_ratio = 0.2448513331146875,
+            #epsilon_range=[0.000001,0.00001],
+            epsilon_growth=5.1327452501707005e-09,
+            num_samp_max=836,
+            num_samp_ratio = 0.02589941443493768,
+            epsilon_max=0.000001,
+            epsilon_range_ratio= 0.2737109212997506
+            
         )
         
-        optimizer = Optimizer(objective, limits, names, options)
+        optimizer = Optimizer(objective, limits, names, options,maximize=False)
         optimizer.update(1000)
+        print(optimizer.sample_manager.get_std())
         print("TODO: implement single pass process")
         pass
 
