@@ -148,7 +148,7 @@ def D0calc_MonteCarloErrors(expdata):
 def forwardModelKinetics(kinetics,expData): 
     # kinetics: (Ea, lnd0aa_x, fracs_x). To make this compatible with other functions, if there are x fracs, input x-1 fractions, and the code will determine the
     # final fraction.
-    
+
     R = 0.008314 #gas constant
     torch.pi = torch.acos(torch.zeros(1)).item() * 2
     # Parameters that need to be read in (These I'll likely read from a file eventually
@@ -162,17 +162,21 @@ def forwardModelKinetics(kinetics,expData):
     temp = kinetics[1:]
 
     if type(expData) is tuple:
+        
         TC = expData[0]
         thr = expData[1]
         lnDaa = expData[2]
         Fi = expData[3]
 
+  
+
     else:
+      
         TC = expData.np_TC
-        thr = expData.np_thr
+        thr = expData.np_thr/60
         lnDaa = expData.np_lnDaa
         Fi = expData.np_Fi_exp
-    
+
     # Grab the parameters from the input
     lnD0aa = torch.tile(temp[0:ndom],(len(thr),1)) #lnD0aa = np.tile(lnD0aa,(len(thr),1))
     fracstemp = temp[ndom:]
@@ -185,7 +189,7 @@ def forwardModelKinetics(kinetics,expData):
     tsec = torch.tile(torch.reshape(thr*3600,(-1,1)),(1,Ea.shape[1])) #This is a complicated way of getting tsec into a numdom x numstep matrix for multiplication
     cumtsec = torch.tile(torch.reshape(torch.cumsum(thr*3600,dim=0),(-1,1)),(1,Ea.shape[1])) #Same as above, but for cumtsec                                                         
     TK = torch.tile(torch.reshape((TC + 273.15),(-1,1)),(1,Ea.shape[1])) #This is a complicated way of turning TC from a 1-d array to a 2d array and making two column copies of it
-    
+
 
     Daa = torch.exp(lnD0aa)*torch.exp(-Ea/(R*TK))
     
@@ -258,4 +262,4 @@ def forwardModelKinetics(kinetics,expData):
 
     lnDaa_MDD = torch.log(Daa_MDD)
     
-    return (TC,lnDaa,sumf_MDD)
+    return (TC,lnDaa,sumf_MDD,lnDaa_MDD)

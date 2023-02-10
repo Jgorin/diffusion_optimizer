@@ -54,7 +54,7 @@ def tune_parameters(config_path, dataset_csv_path, output_path):
     dataset = Dataset(df)
     objective = generate_trainable(dataset, limits, names, config["max_iters"], config["threshold"],config["omitValueIndices"])
     
-    trainable_with_cpu_gpu = tune.with_resources(objective, {"cpu": 6}) #, "gpu": 1
+    trainable_with_cpu_gpu = tune.with_resources(objective, {"cpu": 12,"gpu":2}) #, "gpu": 1
 
 
     hyperopt_search = HyperOptSearch(
@@ -68,9 +68,9 @@ def tune_parameters(config_path, dataset_csv_path, output_path):
         param_space=search_space,
         tune_config=tune.TuneConfig(
             num_samples=12,
-            search_alg=hyperopt_search
+            search_alg=hyperopt_search,
         ),
-        run_config=air.RunConfig(stop={"training_iteration":400}),
+        run_config=air.RunConfig(stop={"training_iteration":150}),
     )
     results=tuner.fit()
     df = results.get_dataframe()

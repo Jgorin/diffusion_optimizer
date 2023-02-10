@@ -52,19 +52,32 @@ def generate_trainable(dataset:Dataset, limits, names, max_iters, threshold,omit
  
             comparator = max if self.optimizer._maximize else min
             
+
+
             # keep running epochs until threshold is met or the max iterations is hit
+            max_samps = 35000
+
+            scoreNum = 0
+            for i in range(0,10):
+                exit_flag = 0
+                while (self.optimizer._iter == 0 or (self.optimizer._iter < self._max_iters and comparator(self.optimizer.get_best()._res, self._threshold) == self._threshold and self.optimizer.sample_manager.get_std() > 10**(-5))) and exit_flag ==0 :
+                    self.optimizer.update(num_iter=1)             
+                    if len(self.optimizer.sample_manager._samples) >max_samps:
+                        scoreNum = scoreNum + 10**10
+                        exit_flag = 1
+
+                        #return {"score": 10**10}
+
+                    if self.optimizer._iter >= self._max_iters and comparator(self.optimizer.get_best()._res, self._threshold) == self._threshold:
+                        scoreNum = scoreNum + 10**10
+                        exit_flag = 1
+
+                        #return {"score": 10**10}
 
 
-            while self.optimizer._iter == 0 or (self.optimizer._iter < self._max_iters and comparator(self.optimizer.get_best()._res, self._threshold) == self._threshold and self.optimizer.sample_manager.get_std() > 10**(-5)):
-                self.optimizer.update(num_iter=1)             
-                if len(self.optimizer.sample_manager._samples) >15000:
-                    return {"score": 10**10}
-
-                if self.optimizer._iter >= self._max_iters and comparator(self.optimizer.get_best()._res, self._threshold) == self._threshold:
-                    return {"score": 10**10}
-
-
-            return {"score": len(self.optimizer.sample_manager._samples)*self.optimizer.get_best()._res}
+                scoreNum += self.optimizer.get_best()._res + 0.2*len(self.optimizer.sample_manager._samples)/max_samps
+            #return {"score": len(self.optimizer.sample_manager._samples)/max_iters + self.optimizer.get_best()._res}
+            return{"score": scoreNum}
     
         def save_checkpoint(self, tmp_checkpoint_dir):
             print(tmp_checkpoint_dir)

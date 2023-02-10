@@ -17,10 +17,9 @@ def exponential_interpolation(min_val, max_val, rate, value):
     if value > 1:
 
         return max_val
-    if value < 0:
 
-        return min_val
 
+    #interpolated_value = np.max([1,max_val*np.exp(-rate*(1/value)) ])
     interpolated_value = min_val * (max_val / min_val) ** (rate * value)
 
     return interpolated_value
@@ -56,7 +55,7 @@ class Optimizer(nbr.Searcher):
         names:list[str],
         options:OptimizerOptions,
         maximize:bool=False,
-        verbose:bool=False
+        verbose:bool=True
     ):
         # set initial parameter values
         if names == None:
@@ -77,6 +76,8 @@ class Optimizer(nbr.Searcher):
         self._objective = objective
         self._options = options
         self.sample_manager = SampleManager(num_samples=initial_samp_num, maximize=maximize)
+        self.param_list = []
+        self.std = []
  
     def update(self, num_iter=10):
         """
@@ -112,6 +113,8 @@ class Optimizer(nbr.Searcher):
             self.curr_num_resamp = max(1, int(self._options._resamp_to_samp_ratio * self.curr_num_samp))
             self.sample_manager.set_num_samples(self.curr_num_samp)
             self._iter += 1
+            #param_list = self.param_list.append([self.sample_manager._elites[0]._param])
+            self.std.append(self.sample_manager.get_std())
             if self._verbose:
                 print(self)
 
@@ -191,7 +194,7 @@ class Optimizer(nbr.Searcher):
             self.get_best()._res)
         except IndexError:
             out = '{}(iteration=0, samples=0, best=None)'.format(self.__class__.__name__)
-        return out + f" {self.current_epsilon_threshold} {self.curr_num_samp}  {self.curr_num_resamp} {self.sample_manager.get_std()}"
+        return out + f" {self.current_epsilon_threshold} {self.curr_num_samp}  {self.curr_num_resamp} {self.sample_manager.get_std()} {self.sample_manager._elites[0]._param}"
     
     def _validate_args(args):
         pass

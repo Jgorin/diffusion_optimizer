@@ -56,6 +56,9 @@ class SampleManager:
     def get_std(self):
         top_scores = [elite._res for elite in self._elites]
         return np.std(top_scores)
+    
+    # def get_best_sample(self):
+    #     return 
 
 
 def main():

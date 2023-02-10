@@ -34,15 +34,34 @@ class DiffusionObjective(Objective):
         
         temp = X[1:]
         lnD0aa = temp[0:ndom]
-        fracstemp = temp[ndom:] 
+        fracstemp = temp[ndom:]
+
+        #This punishes the model for creating sums that don't add up to one
+        if torch.sum(fracstemp,axis=0,keepdim = True)>0.999:
+            
+
+            return torch.sum(fracstemp,axis=0,keepdim = True).item()*100
+
+
         sumTemp = (1-torch.sum(fracstemp,axis=0,keepdim = True))
+        
         fracs = torch.concat((fracstemp,sumTemp),dim=-1)
+
         # Report high misfit values if conditions are not met
+
+
+
+        lnd0_off_counter = 0
+        for i in range(len(lnD0aa)-1):
+            if lnD0aa[i+1]>lnD0aa[i]:
+                lnd0_off_counter = lnd0_off_counter + (torch.abs((lnD0aa[i+1]-lnD0aa[i])/lnD0aa[i+1]))*10**17
 
         for i in range(len(lnD0aa)-1):
             if lnD0aa[i+1]>lnD0aa[i]:
-                return 10**3
-            
+
+                return lnd0_off_counter.item()
+        
+    
         fwdModelResults = forwardModelKinetics(X,data)
 
         # Parameters that need to be read in (These I'll likely read from a file eventually
