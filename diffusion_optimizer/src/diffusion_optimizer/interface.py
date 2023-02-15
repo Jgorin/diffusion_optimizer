@@ -59,7 +59,6 @@ def plot_results(optimizer,dataset):
     temp = Fi_MDD[1:]-Fi_MDD[0:-1]
     Fi_MDD =np.insert(temp,0,Fi_MDD[0])
 
-
     Fi = np.array(dataset.Fi) 
     temp = Fi[1:]-Fi[0:-1]
     Fi = np.insert(temp,0,Fi[0])
@@ -112,6 +111,7 @@ def main():
             
         optimizer = Optimizer(objective, limits, names, options,maximize=False)
         optimizer.update(500)
+        breakpoint()
         plot_results(optimizer,dataset)
    
         #     finalList.append(optimizer.param_list)

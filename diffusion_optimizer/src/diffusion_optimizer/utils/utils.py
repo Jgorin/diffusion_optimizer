@@ -180,7 +180,6 @@ def forwardModelKinetics(kinetics,expData):
     # Grab the parameters from the input
     lnD0aa = torch.tile(temp[0:ndom],(len(thr),1)) #lnD0aa = np.tile(lnD0aa,(len(thr),1))
     fracstemp = temp[ndom:]
-
     fracs = torch.tile(torch.concat((fracstemp,1-torch.sum(fracstemp,axis=0,keepdim=True)),axis=-1),(len(thr),1))
     Ea = torch.tile(kinetics[0],(len(thr),ndom)) # This is an Ea for each domain
 
@@ -202,7 +201,6 @@ def forwardModelKinetics(kinetics,expData):
     #Calculate D
     DaaForSum[0,:] = Daa[0,:]*tsec[0,:]
     DaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
-
     Dtaa = torch.cumsum(DaaForSum, axis = 0)
 
     f = (6/(math.pi**(3/2)))*torch.sqrt((math.pi**2)*Dtaa)
@@ -210,9 +208,31 @@ def forwardModelKinetics(kinetics,expData):
             ((torch.pi**2)*Dtaa[f>=0.1])
     f[f>=0.9] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[f>=0.9])
 
-    # If any member of f is preceeded by a value greater than it, set equal to 1 (we've reached total gas released)
-    f[1:,:][f[1:,:]<f[0:-1,:]] = 1
-    f[1:,:][f[0:-1,:]==1] = 1
+
+
+    # # If any member of f is preceeded by a value greater than it, set equal to 1 (we've reached total gas released)
+    # f[1:,:][f[1:,:]<f[0:-1,:]] = 1
+    # f[1:,:][f[0:-1,:]==1] = 1
+
+     # f for one to end where f from 0 to end-1 ==1, set to 1
+    for i in range(len(f)-1): #rows
+        for j in range(len(f[0])): #cols
+            if f[i,j] > f[i+1,j]:
+                f[i+1,j] = f[i,j]
+    # loop backwards through the columns and find the point at which we've converged to 1 and
+    # set all values preceeding it to 1 as well
+    exit_flag = 0
+    for i in range(len(f[0])): #columns
+        exit_flag = 0
+        j = len(f)-1
+        while exit_flag == 0: #rows
+
+            if (f[j,i] > f[j-2,i]) and (f[j,i] == f[j-1,i]):
+                f[j:,i] = 1
+                exit_flag = 1
+            j -= 1
+            if j == -1:
+                exit_flag = 1
 
     # Multiply each gas realease by the percent gas located in each domain
     f_MDD = f*fracs
