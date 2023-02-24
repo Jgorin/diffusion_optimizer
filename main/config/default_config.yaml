@@ -19,7 +19,7 @@ epsilon_growth: [0.000000001, 0.00000001]      # growth rate for epsilon thresho
 epsilon_ratio: [0.0000000001,1]
 
 # List of values to omit during fitting (Added by Drew)
-omitValueIndices: [1,2,3,4,5,6,7]
+omitValueIndices: []
 
 limits:                        
   Ea: [70, 110]

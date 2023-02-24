@@ -14,7 +14,7 @@ def adaptive_sample_count(current_error, rate, intercept):
     return int(min(1000, intercept + (math.exp(rate * current_error) - 1)))
 
 def exponential_interpolation(min_val, max_val, rate, value):
-    if value > 1:
+    if value > 3:
 
         return max_val
 

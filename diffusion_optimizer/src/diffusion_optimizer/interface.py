@@ -45,6 +45,7 @@ def plot_results(optimizer,dataset):
     
     params = torch.tensor(optimizer.sample_manager._elites[0]._param)
     data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr/60),dataset.np_lnDaa,torch.tensor(dataset.Fi)))
+    breakpoint()
     T_plot = 10000/(dataset["TC"]+273.15)
 
     plt.figure()
@@ -110,7 +111,7 @@ def main():
             )
             
         optimizer = Optimizer(objective, limits, names, options,maximize=False)
-        optimizer.update(500)
+        optimizer.update(5)
         breakpoint()
         plot_results(optimizer,dataset)
    

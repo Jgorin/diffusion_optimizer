@@ -49,8 +49,6 @@ class DiffusionObjective(Objective):
 
         # Report high misfit values if conditions are not met
 
-
-
         lnd0_off_counter = 0
         for i in range(len(lnD0aa)-1):
             if lnD0aa[i+1]>lnD0aa[i]:
@@ -64,8 +62,7 @@ class DiffusionObjective(Objective):
     
         fwdModelResults = forwardModelKinetics(X,data)
 
-        # Parameters that need to be read in (These I'll likely read from a file eventually
-        # But we'll read the data from above just to test the function for now...)
+        # Parameters that need to be read in
 
         TC = data.np_TC #data["TC"].to_numpy()
         thr = data.np_thr#["thr"].to_numpy()
@@ -103,4 +100,5 @@ class DiffusionObjective(Objective):
         #     if torch.round(Fi_MDD[-2],decimals=2) >= 1:
         #          return 10**10
         # Return the sum of the residuals
+
         return torch.sum(misfit).item()
