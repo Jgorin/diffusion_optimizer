@@ -5,7 +5,7 @@ import torch
 class DiffusionObjective(Objective):
     
     # override evaluate function
-    def evaluate(self, X):
+    def __call__(self, X): #__call__ #evaluate
         data = self.dataset
         omitValueIndices = self.omitValueIndices
         torch.pi = torch.acos(torch.zeros(1)).item() * 2
@@ -59,17 +59,21 @@ class DiffusionObjective(Objective):
 
                 return lnd0_off_counter.item()
         
-    
-        fwdModelResults = forwardModelKinetics(X,data)
+
+        fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
 
         # Parameters that need to be read in
 
         TC = data.np_TC #data["TC"].to_numpy()
         thr = data.np_thr#["thr"].to_numpy()
+        if thr[1]>10:
+            thr = thr/60
+
         lnDaa = data.np_lnDaa#["ln(D/a^2)"].to_numpy()
         Fi_exp = data.np_Fi_exp#["Fi"].to_numpy()
         Fi_MDD = fwdModelResults[2]#fwdModelResults["Fi_MDD"].to_numpy()
         
+
         #Calculate the Fraction released for each heating step
         TrueFracFi = (Fi_exp[1:]-Fi_exp[0:-1])
         TrueFracFi = torch.concat((torch.unsqueeze(Fi_exp[0],dim=-1),TrueFracFi),dim=-1)
@@ -79,11 +83,15 @@ class DiffusionObjective(Objective):
         # Calculate the L1 loss 
 
         
-        #Remove user-specified values to be omitted from the misfit calculation
-        indicesForPunishment = trueFracMDD == 0
-        if len(omitValueIndices) != 0:
-            TrueFracFi[omitValueIndices] = 0
-            trueFracMDD[omitValueIndices] = 0
+        # This used to be for punishing experiments when they ran out of gas too early. Now I'm trying to punish when it reaches 1 too early instead.
+        indicesForPunishment = torch.round(Fi_MDD[0:-2],decimals=4) == 1
+        if torch.sum(trueFracMDD) == 0:
+            return 10**10
+        if sum(indicesForPunishment>0):
+            pass
+        # if len(omitValueIndices) != 0:
+        #     TrueFracFi[omitValueIndices] = 0
+        #     trueFracMDD[omitValueIndices] = 0
         
         #Calculate L1 loss
         misfit = torch.absolute(TrueFracFi-trueFracMDD)
@@ -92,13 +100,21 @@ class DiffusionObjective(Objective):
         # Assign penalty for each step if the model runs out of gas before the experiment did
 
         # Add a misfit penalty of 1 for each heating step that ran out of gas early
-        misfit[indicesForPunishment] = 1
+        misfit[0:-2][indicesForPunishment] += 1
+
+
         
-        if torch.round(Fi_MDD[-1],decimals=2) != 1:
-            return 10**3
+        # This doesnt work when we're renormalizing
+        # if torch.round(Fi_MDD[-1],decimals=2) != 1: 
+        #     return 10**3
         
         #     if torch.round(Fi_MDD[-2],decimals=2) >= 1:
         #          return 10**10
         # Return the sum of the residuals
+        misfit = torch.sum(misfit)+fwdModelResults[-1]
+        if misfit.item() == 1:
+            pass
+        if Fi_MDD[-10] == 1:
+            pass
 
-        return torch.sum(misfit).item()
+        return misfit.item()

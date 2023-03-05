@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pandas as pd
 import torch
+import random
 
 
 def D0calc_MonteCarloErrors(expdata):
@@ -68,8 +69,8 @@ def D0calc_MonteCarloErrors(expdata):
 
     # Decide which equation to use based on the cumulative gas fractions from each step
     use_a = (Fi<= 0.1) & (Fi> 0.00000001)
-    use_b = (Fi > 0.1) & (Fi<= 0.85)
-    use_c = (Fi > 0.85) & (Fi<= 1.0)
+    use_b = (Fi > 0.1) & (Fi<= 0.9)
+    use_c = (Fi > 0.9) & (Fi<= 1.0)
 
     # Compute the final values
     DR2 = use_a*DR2_a + np.nan_to_num(use_b*DR2_b) + use_c*DR2_c
@@ -129,8 +130,8 @@ def D0calc_MonteCarloErrors(expdata):
             MCDR2_c[m,n] = (1/(math.pi*math.pi*diffti[m-1]))*(np.log((1-MCFi[m-1,n])/(1-MCFi[m,n])));
 
     use_a_MC = (MCFi<= 0.1) & (MCFi> 0.00000001)
-    use_b_MC = (MCFi > 0.1) & (MCFi<= 0.85)
-    use_c_MC = (MCFi > 0.85) & (MCFi<= 1.0) 
+    use_b_MC = (MCFi > 0.1) & (MCFi<= 0.9)
+    use_c_MC = (MCFi > 0.9) & (MCFi<= 1.0) 
 
 
     MCDR2 = use_a_MC*MCDR2_a + np.nan_to_num(use_b_MC*MCDR2_b) + use_c_MC*MCDR2_c
@@ -145,7 +146,7 @@ def D0calc_MonteCarloErrors(expdata):
                             "ln(D/a^2)": np.log(DR2),"ln(D/a^2)-del": np.log(DR2-MCDR2_uncert.ravel()), \
                             "ln(D/a^2)+del": np.log(DR2+MCDR2_uncert.ravel()) })
 
-def forwardModelKinetics(kinetics,expData): 
+def forwardModelKinetics(kinetics,expData,lookup_table): 
     # kinetics: (Ea, lnd0aa_x, fracs_x). To make this compatible with other functions, if there are x fracs, input x-1 fractions, and the code will determine the
     # final fraction.
 
@@ -165,6 +166,8 @@ def forwardModelKinetics(kinetics,expData):
         
         TC = expData[0]
         thr = expData[1]
+        if thr[0] >5:
+            thr = thr/60
         lnDaa = expData[2]
         Fi = expData[3]
 
@@ -172,7 +175,10 @@ def forwardModelKinetics(kinetics,expData):
     else:
       
         TC = expData.np_TC
-        thr = expData.np_thr/60
+ 
+        thr = expData.np_thr
+        if thr[0] >5:
+            thr = thr/60
         lnDaa = expData.np_lnDaa
         Fi = expData.np_Fi_exp
 
@@ -184,14 +190,15 @@ def forwardModelKinetics(kinetics,expData):
     Ea = torch.tile(kinetics[0],(len(thr)+2,ndom)) # This is an Ea for each domain
 
 
-
     # Temporary!!! 
     # Manually add in steps from the irridiation and from the lab storage
 
-    seconds_since_irrad = torch.tensor(1391*24*60*60)
+    seconds_since_irrad = torch.tensor(110073600)  #torch.tensor(1300*24*60*60)
     irrad_duration_sec = torch.tensor(5*3600) # in seconds
     irrad_T = torch.tensor(40) # in C
-    storage_T = torch.tensor(21.11111) # in C
+    storage_T = torch.tensor(21.1111111) # in C
+    
+    # Do stuff with the variables
     time_add = torch.tensor([irrad_duration_sec,seconds_since_irrad])
     temp_add = torch.tensor([irrad_T, storage_T])
     tsec = torch.cat([time_add,thr*3600])
@@ -217,25 +224,30 @@ def forwardModelKinetics(kinetics,expData):
     DaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
    
 
-    lookup_table = pd.read_parquet("DiffusionLookup.parquet")
-
+    # Lookup table
+    #lookup_table = pd.read_parquet()
 
     # It might be smart for us to make this stage optional at some point
     # because not every mineral is actually diffusive enough that room temperature will do anything
     for i in range(len(DaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
-        min_index = torch.argmin(torch.abs(torch.tensor(lookup_table["Model_Dtaa"])-DaaForSum[0,i]))
-        DaaForSum[0,i] = DaaForSum[0,i]*lookup_table["Ratio"][min_index.item()]
+        if DaaForSum[0,i] <= 1.347419e-17:
+            DaaForSum[0,i] *= 0
+        elif DaaForSum[0,i] >= 4.698221e-06:
+            pass
+        else:
+            DaaForSum[0,i] *= lookup_table(DaaForSum[0,i])
 
 
     Dtaa = torch.cumsum(DaaForSum, axis = 0)
 
     
 
-
+    Bt = Dtaa*torch.pi**2
     f = (6/(math.pi**(3/2)))*torch.sqrt((math.pi**2)*Dtaa)
-    f[f>=0.1] = (6/(torch.pi**(3/2)))*torch.sqrt((torch.pi**2)*Dtaa[f>=0.1])-(3/(torch.pi**2))* \
-            ((torch.pi**2)*Dtaa[f>=0.1])
-    f[f>=0.9] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[f>=0.9])
+    f[Bt>0.0091] = (6/(torch.pi**(3/2)))*torch.sqrt((torch.pi**2)*Dtaa[Bt>0.0091])-(3/(torch.pi**2))* \
+            ((torch.pi**2)*Dtaa[Bt>0.0091])
+    f[Bt >1.8] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[Bt > 1.8])
+
 
     
 
@@ -244,44 +256,63 @@ def forwardModelKinetics(kinetics,expData):
     # f[1:,:][f[1:,:]<f[0:-1,:]] = 1
     # f[1:,:][f[0:-1,:]==1] = 1
 
-     # f for one to end where f from 0 to end-1 ==1, set to 1
-
-
-    for i in range(len(f)-1): #rows
-        for j in range(len(f[0])): #cols
-            if f[i,j] > f[i+1,j]:
-                f[i+1,j] = f[i,j]
+    #  # f for one to end where f from 0 to end-1 ==1, set to 1
+    # for i in range(len(f)-1): #rows
+    #     for j in range(len(f[0])): #cols
+    #         if f[i,j] > f[i+1,j]:
+    #             f[i+1,j] = f[i,j]
     
     # loop backwards through the columns and find the point at which we've converged to 1 and
     # set all values preceeding it to 1 as well
-    exit_flag = 0
-    for i in range(len(f[0])): #columns
-        exit_flag = 0
-        j = len(f)-1
-        while exit_flag == 0: #rows
-            if (f[j,i] > f[j-2,i]) and (f[j,i] == f[j-1,i]):
-                f[j:,i] = 1
-                exit_flag = 1
-            j -= 1
-            if j == -1:
-                exit_flag = 1
-    for i in range(len(f[0])):
-        if f[0,i] < 0:
-            f[0:,:] = 1
+    # exit_flag = 0
+    # for i in range(len(f[0])): #columns
+    #     exit_flag = 0
+    #     j = len(f)-1
+    #     while exit_flag == 0: #rows
+    #         if (f[j,i] > f[j-2,i]) and (f[j,i] == f[j-1,i]):
+    #             f[j:,i] = 1
+    #             exit_flag = 1
+    #         j -= 1
+    #         if j == -1:
+    #             exit_flag = 1
+             
+    # for i in range(len(f[0])):
+    #     if f[0,i] < 0:
+    #         f[0:,:] = 1
 
     
     # Multiply each gas realease by the percent gas located in each domain
     
+    
     f_MDD = f*fracs
     # Now I need to renormalize by calculating first the individual steps and then the new sum
-
-    # Calculate the total gas released at each step from each gas fraction
     sumf_MDD = torch.sum(f_MDD,axis=1)
-    
-    TrueFracMDD = (sumf_MDD[1:]-sumf_MDD[0:-1])
-    TrueFracMDD = torch.concat((torch.unsqueeze(sumf_MDD[0],dim=-1),TrueFracMDD),dim=-1)
-    TrueFracMDD = TrueFracMDD[2:]
 
+    if (sumf_MDD[2] == 1):
+        return (TC[2:], torch.zeros(len(sumf_MDD)-2),torch.zeros(len(sumf_MDD)-2),0)
+        
+
+    # Set a flag if the final value for sumf_MDD isn't really close to 1. If it isn't, then we'll lose our ability to tell
+    # As soon as we normalize
+    # if torch.round(sumf_MDD[-1],decimals=2) != 1: #Should try setting this to 3 and see if it matters
+    #     not_released = (1-sumf_MDD[-1])*10**17
+        
+    else:
+        
+        not_released = torch.tensor(0)
+
+    if torch.round(torch.sum(f[-1,:]),decimals=2) != ndom:
+        not_released = (1-sumf_MDD[-1])*10**17
+
+    # Remove the two steps we added, recalculate the total sum, and renormalize.
+    newf = torch.zeros(sumf_MDD.shape)
+    newf[0] = sumf_MDD[0]
+    newf[1:] = sumf_MDD[1:]-sumf_MDD[0:-1]
+    newf = newf[2:]
+    normalization_factor = torch.max(torch.cumsum(newf,0))
+    TrueFracMDD = newf/normalization_factor
+
+   
 
     #Calculate the apparent Daa from the MDD using equations of Fechtig and Kalbitzer
     Daa_MDD_a = torch.zeros(TrueFracMDD.shape)
@@ -295,9 +326,15 @@ def forwardModelKinetics(kinetics,expData):
     #torch.concat((torch.unsqueeze(Fi_exp[0],dim=-1),TrueFracFi),dim=-1)
     diffti = cumtsec[1:,1]-cumtsec[0:-1,1]
     diffti = torch.concat((torch.unsqueeze(cumtsec[0,0],dim=-1),diffti),dim=-1)
+
+
+
     diffti = diffti[2:]
     diffFi = TrueFracMDD
+
     sumf_MDD = torch.cumsum(diffFi,axis=0)
+    # if torch.isnan(sumf_MDD[-1]):
+    #     breakpoint()
 
 
 
@@ -328,4 +365,4 @@ def forwardModelKinetics(kinetics,expData):
     lnDaa_MDD = torch.log(Daa_MDD)
 
 
-    return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD)
+    return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released)

@@ -1,7 +1,7 @@
 import pandas as pd
 from diffusion_optimizer.utils.utils import D0calc_MonteCarloErrors
 
-def generate_inputs(nameOfInputCSVFile="3Domains.csv", nameOfExperimentalResultsFile="data4Optimizer.csv"):
+def generate_inputs(nameOfInputCSVFile, nameOfExperimentalResultsFile="data4Optimizer.csv"):
     #Code written by Marissa Tremblay and transcribed into Python/modified by Drew Gorin. Last modified 1.2023
     #This m-file is used to fit an MDD model to stepwise degassing diffusion
     #experiment data. It is currently set up for only one isotope. The number

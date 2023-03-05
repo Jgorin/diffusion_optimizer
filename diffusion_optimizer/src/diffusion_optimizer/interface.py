@@ -17,6 +17,7 @@ from diffusion_optimizer.neighborhood.dataset import Dataset
 from diffusion_optimizer.utils.utils import forwardModelKinetics
 import seaborn as sns
 
+
 file_path = os.path.dirname(os.path.realpath(__file__))
 
 def parse_args():
@@ -41,22 +42,25 @@ def list2range(list):
 def list2tuple(list):
     return (list[0], list[1])
 
-def plot_results(optimizer,dataset):
+def plot_results(optimizer,dataset,objective):
     
     params = torch.tensor(optimizer.sample_manager._elites[0]._param)
-    data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr/60),dataset.np_lnDaa,torch.tensor(dataset.Fi)))
-    breakpoint()
+    params = torch.tensor([1.06393577e+02, 2.12389770e+01, 1.86098740e+01, 8.15511327e+00, 9.69495713e-01, 2.95042649e-02])
+    data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr),dataset.np_lnDaa,torch.tensor(dataset.Fi)),objective.lookup_table)
+  
     T_plot = 10000/(dataset["TC"]+273.15)
-
+    
     plt.figure()
     plt.subplot(2,1,1)
     plt.plot(T_plot,dataset["ln(D/a^2)"],'bo',markersize=10)
-    plt.plot(T_plot,data[-1],'ko',markersize=7)
+    plt.plot(T_plot,data[-2],'ko',markersize=7)
     plt.ylabel("ln(D/a^2)")
     plt.xlabel("10000/T (K)")
     plt.subplot(2,1,2)
 
-    Fi_MDD = np.array(data[-2])
+
+
+    Fi_MDD = np.array(data[-3])
     temp = Fi_MDD[1:]-Fi_MDD[0:-1]
     Fi_MDD =np.insert(temp,0,Fi_MDD[0])
 
@@ -65,7 +69,6 @@ def plot_results(optimizer,dataset):
     Fi = np.insert(temp,0,Fi[0])
     plt.plot(range(0,len(T_plot)),Fi,'b-o',markersize=5)
     plt.plot(range(0,len(T_plot)),Fi_MDD,'k-o',markersize=3)
-   
     plt.xlabel("step number")
     plt.ylabel("Fractional Release (%)")
     plt.show()
@@ -89,11 +92,12 @@ def main():
         tune_parameters(args.config_path, f"{args.output_path}/{config['nameOfExperimentalResultsFile']}", args.output_path)
     
     else:
+        lookup_table = pd.read_parquet("DiffusionLookup.parquet")
         dataset = Dataset(pd.read_csv(f"{args.output_path}/{config['nameOfExperimentalResultsFile']}"))
         #Drew added this to pass in the omitted values in misfit calc
-        objective = DiffusionObjective(dataset,config["omitValueIndices"])
+        objective = DiffusionObjective(dataset,config["omitValueIndices"],f"{file_path}/lookup_table.pkl")
         finalList = []
-        
+
         #for i in range(0,30):
          #   print(i)
         options = OptimizerOptions(
@@ -102,7 +106,7 @@ def main():
             resamp_to_samp_ratio = 0.548907670029791,
             #epsilon_range=[0.000001,0.00001],
             epsilon_growth=8.910183135980043*1**(-9),
-            num_samp_max= 1089, #873,
+            num_samp_max= 873, #873,
             num_samp_ratio = 0.04926705645229101 ,
             epsilon_max=5.824566276586376*1**(-8),
             epsilon_range_ratio= 0.35374549914032105,
@@ -111,9 +115,9 @@ def main():
             )
             
         optimizer = Optimizer(objective, limits, names, options,maximize=False)
-        optimizer.update(5)
-        breakpoint()
-        plot_results(optimizer,dataset)
+        optimizer.update(2)
+    
+        plot_results(optimizer,dataset,objective)
    
         #     finalList.append(optimizer.param_list)
 

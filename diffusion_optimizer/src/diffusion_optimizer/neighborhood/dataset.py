@@ -9,7 +9,6 @@ class Dataset(pd.DataFrame):
         assert self["thr"] is not None, "given dataset does not contain thr parameter."
         assert self["ln(D/a^2)"] is not None, "given dataset does not contain ln(D/a^2) parameter."
         assert self["Fi"] is not None, "given dataset does not contain Fi parameter."
-
        # temporarily ignores atribute setting warning from base dataframe class
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
@@ -18,3 +17,8 @@ class Dataset(pd.DataFrame):
             self.np_thr = torch.tensor(self["thr"].values) 
             self.np_lnDaa = torch.tensor(self["ln(D/a^2)"].values) 
             self.np_Fi_exp = torch.tensor(self["Fi"].values)
+
+            #self.lookup_table = pd.read_parquet("../../DiffusionLookup.parquet")
+
+
+
