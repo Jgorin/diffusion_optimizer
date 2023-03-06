@@ -152,8 +152,8 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
 
     R = 0.008314 #gas constant
     torch.pi = torch.acos(torch.zeros(1)).item() * 2
-    # Parameters that need to be read in (These I'll likely read from a file eventually
-    # But we'll read the data from above just to test the function for now...)
+
+    # Infer the number of domains from input
     if len(kinetics) <= 3:
         ndom = 1
     else:
@@ -162,147 +162,115 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # Make a subset of X, removing the Ea so that we have an even number of elements
     temp = kinetics[1:]
 
-    if type(expData) is tuple:
-        
+    if type(expData) is tuple: # Some functions use fwdModelKinetics by inserting expData as  tuple, while others input as a dataset
         TC = expData[0]
         thr = expData[1]
-        if thr[0] >5:
+        if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
             thr = thr/60
         lnDaa = expData[2]
         Fi = expData[3]
 
   
-    else:
-      
+    else: # expData is type Dataset.
         TC = expData.np_TC
- 
         thr = expData.np_thr
-        if thr[0] >5:
+        if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
             thr = thr/60
         lnDaa = expData.np_lnDaa
         Fi = expData.np_Fi_exp
 
 
-    # Grab the parameters from the input
-    lnD0aa = torch.tile(temp[0:ndom],(len(thr)+2,1)) #lnD0aa = np.tile(lnD0aa,(len(thr),1))
-    fracstemp = temp[ndom:]
-    fracs = torch.tile(torch.concat((fracstemp,1-torch.sum(fracstemp,axis=0,keepdim=True)),axis=-1),(len(thr)+2,1))
-    Ea = torch.tile(kinetics[0],(len(thr)+2,ndom)) # This is an Ea for each domain
+    # Copy the parameters into dimensions that mirror those of the experiment schedule to increase calculation speed.
+    lnD0aa = torch.tile(temp[0:ndom],(len(thr)+2,1)) # Do this for LnD0aa
+    fracstemp = temp[ndom:] # Grab fracs that were input (one will be missing because it is pre-determined by the others)
+    fracs = torch.tile(torch.concat((fracstemp,1-torch.sum(fracstemp,axis=0,keepdim=True)),axis=-1),(len(thr)+2,1)) # Add the last frac as 1-sum(other fracs)
+    Ea = torch.tile(kinetics[0],(len(thr)+2,ndom)) # Do for Ea
 
 
-    # Temporary!!! 
-    # Manually add in steps from the irridiation and from the lab storage
+    # THIS IS TEMPORARY-- WE NEED TO ADD THIS AS AN INPUT.. THE INPUTS WILL NEED TO BE
+    # 1. Duration of irradiation
+    # 2. Temperature during irradiation
+    # 3. Duration of lab storage
+    # 4. Temperature during lab storage
 
-    seconds_since_irrad = torch.tensor(110073600)  #torch.tensor(1300*24*60*60)
+    # We might also want to make this all optional at some point, since some minerals are so retentive 
+    # that they wont lease any helium during irradiation and storage.
+    
+    # Currently, I'm Manually adding in steps from the irridiation and from the lab storage
+    seconds_since_irrad = torch.tensor(110073600)  # seconds
     irrad_duration_sec = torch.tensor(5*3600) # in seconds
     irrad_T = torch.tensor(40) # in C
     storage_T = torch.tensor(21.1111111) # in C
     
-    # Do stuff with the variables
+    # Make a tensor with these two extra heating steps in order.
     time_add = torch.tensor([irrad_duration_sec,seconds_since_irrad])
     temp_add = torch.tensor([irrad_T, storage_T])
+    
+    # Add the two new steps to the schedule of the actual experiment
     tsec = torch.cat([time_add,thr*3600])
     TC = torch.cat([temp_add,TC])
 
      
-    # Put variables in correct units
-    tsec = torch.tile(torch.reshape(tsec,(-1,1)),(1,Ea.shape[1])) #This is a complicated way of getting tsec into a numdom x numstep matrix for multiplication
-    cumtsec = torch.tile(torch.reshape(torch.cumsum(tsec[:,1],dim=0),(-1,1)),(1,Ea.shape[1])) #Same as above, but for cumtsec                                                         
-    TK = torch.tile(torch.reshape((TC + 273.15),(-1,1)),(1,Ea.shape[1])) #This is a complicated way of turning TC from a 1-d array to a 2d array and making two column copies of it
+    # Put time and cumulative time in the correct shape
+    tsec = torch.tile(torch.reshape(tsec,(-1,1)),(1,Ea.shape[1])) #This is a complicated-looking way of getting tsec into a numdom x numstep matrix for multiplication
+    cumtsec = torch.tile(torch.reshape(torch.cumsum(tsec[:,1],dim=0),(-1,1)),(1,Ea.shape[1])) #Same as above, but for cumtsec        
 
+    # Convert TC to TK and put in correct shape for quick computation                                                 
+    TK = torch.tile(torch.reshape((TC + 273.15),(-1,1)),(1,Ea.shape[1])) #This is a complicated-looking way of turning TC from a 1-d array to a 2d array and making two column copies of it
 
+    # Calculate D/a^2 for each domain
     Daa = torch.exp(lnD0aa)*torch.exp(-Ea/(R*TK))
     
+
     # Pre-allocate fraction and Dtaa
     f = torch.zeros(Daa.shape)
     Dtaa = torch.zeros(Daa.shape)
-    DaaForSum = torch.zeros(Daa.shape)
+    DtaaForSum = torch.zeros(Daa.shape)
     
     
-    #Calculate D
-    DaaForSum[0,:] = Daa[0,:]*tsec[0,:]
-    DaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
-   
+    # Calculate Dtaa in incremental (not cumulative) form including the added heating steps
+    DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
+    DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
 
-    # Lookup table
-    #lookup_table = pd.read_parquet()
-
-    # It might be smart for us to make this stage optional at some point
-    # because not every mineral is actually diffusive enough that room temperature will do anything
-    for i in range(len(DaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
-        if DaaForSum[0,i] <= 1.347419e-17:
-            DaaForSum[0,i] *= 0
-        elif DaaForSum[0,i] >= 4.698221e-06:
+    # Make the correction for P_D vs D_only
+    for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
+        if DtaaForSum[0,i] <= 1.347419e-17:
+            DtaaForSum[0,i] *= 0
+        elif DtaaForSum[0,i] >= 4.698221e-06:
             pass
         else:
-            DaaForSum[0,i] *= lookup_table(DaaForSum[0,i])
+            DtaaForSum[0,i] *= lookup_table(DtaaForSum[0,i])
 
-
-    Dtaa = torch.cumsum(DaaForSum, axis = 0)
+    # Calculate Dtaa in cumulative form.
+    Dtaa = torch.cumsum(DtaaForSum, axis = 0)
 
     
-
+    # Calculate f at each step
     Bt = Dtaa*torch.pi**2
     f = (6/(math.pi**(3/2)))*torch.sqrt((math.pi**2)*Dtaa)
     f[Bt>0.0091] = (6/(torch.pi**(3/2)))*torch.sqrt((torch.pi**2)*Dtaa[Bt>0.0091])-(3/(torch.pi**2))* \
             ((torch.pi**2)*Dtaa[Bt>0.0091])
     f[Bt >1.8] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[Bt > 1.8])
 
-
     
-
-
-    # # If any member of f is preceeded by a value greater than it, set equal to 1 (we've reached total gas released)
-    # f[1:,:][f[1:,:]<f[0:-1,:]] = 1
-    # f[1:,:][f[0:-1,:]==1] = 1
-
-    #  # f for one to end where f from 0 to end-1 ==1, set to 1
-    # for i in range(len(f)-1): #rows
-    #     for j in range(len(f[0])): #cols
-    #         if f[i,j] > f[i+1,j]:
-    #             f[i+1,j] = f[i,j]
-    
-    # loop backwards through the columns and find the point at which we've converged to 1 and
-    # set all values preceeding it to 1 as well
-    # exit_flag = 0
-    # for i in range(len(f[0])): #columns
-    #     exit_flag = 0
-    #     j = len(f)-1
-    #     while exit_flag == 0: #rows
-    #         if (f[j,i] > f[j-2,i]) and (f[j,i] == f[j-1,i]):
-    #             f[j:,i] = 1
-    #             exit_flag = 1
-    #         j -= 1
-    #         if j == -1:
-    #             exit_flag = 1
-             
-    # for i in range(len(f[0])):
-    #     if f[0,i] < 0:
-    #         f[0:,:] = 1
-
-    
-    # Multiply each gas realease by the percent gas located in each domain
-    
-    
+    # Multiply each gas realease by the percent gas located in each domain (prescribed by input)
     f_MDD = f*fracs
-    # Now I need to renormalize by calculating first the individual steps and then the new sum
+
+    # Renormalize everything by first calculating the fractional releases at each step, summing back up, 
+    # and then dividing by the max released in each fraction. This simulates how we would have measured and calculated this in the lab.
     sumf_MDD = torch.sum(f_MDD,axis=1)
 
+    # If the second heating step gets gas release all the way to 100%, then the rest of the calculation is not necessary. 
+    # Return that sumf_MDD == 0
     if (sumf_MDD[2] == 1):
         return (TC[2:], torch.zeros(len(sumf_MDD)-2),torch.zeros(len(sumf_MDD)-2),0)
         
 
     # Set a flag if the final value for sumf_MDD isn't really close to 1. If it isn't, then we'll lose our ability to tell
-    # As soon as we normalize
-    # if torch.round(sumf_MDD[-1],decimals=2) != 1: #Should try setting this to 3 and see if it matters
-    #     not_released = (1-sumf_MDD[-1])*10**17
-        
-    else:
-        
-        not_released = torch.tensor(0)
-
-    if torch.round(torch.sum(f[-1,:]),decimals=2) != ndom:
-        not_released = (1-sumf_MDD[-1])*10**17
+    # As soon as we renormalize. We'll pass this value to the misfit, and make it so that these models are not favorable.
+    not_released = torch.tensor(0)
+    if torch.round(torch.sum(f[-1,:]),decimals=2) != ndom: #if the gas released at the end of the experiment isn't 100% for each domain...
+        not_released = (1-sumf_MDD[-1])*10**17 # Return a large misfit that's a function of how far off we were.
 
     # Remove the two steps we added, recalculate the total sum, and renormalize.
     newf = torch.zeros(sumf_MDD.shape)
@@ -310,33 +278,28 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     newf[1:] = sumf_MDD[1:]-sumf_MDD[0:-1]
     newf = newf[2:]
     normalization_factor = torch.max(torch.cumsum(newf,0))
-    TrueFracMDD = newf/normalization_factor
+    diffFi= newf/normalization_factor 
 
-   
-
-    #Calculate the apparent Daa from the MDD using equations of Fechtig and Kalbitzer
-    Daa_MDD_a = torch.zeros(TrueFracMDD.shape)
-    Daa_MDD_b = torch.zeros(TrueFracMDD.shape)
-    Daa_MDD_c = torch.zeros(TrueFracMDD.shape)
+    # I THINK WE CAN ACTUALLY DITCH THIS CALCULATION FROM HERE DOWN TO INCREASE PERFORMANCE! LET'S DO LATER, THOUGH).
+    # Calculate the apparent Daa from the MDD using equations of Fechtig and Kalbitzer 
+    Daa_MDD_a = torch.zeros(diffFi.shape)
+    Daa_MDD_b = torch.zeros(diffFi.shape)
+    Daa_MDD_c = torch.zeros(diffFi.shape)
 
     # use equations 5a through c from Fechtig and Kalbitzer for spherical geometry
     # Fechtig and Kalbitzer Equation 5a, for cumulative gas fractions up to 10%
     # special case when i = 1; need to insert 0 for previous amount released
 
-    #torch.concat((torch.unsqueeze(Fi_exp[0],dim=-1),TrueFracFi),dim=-1)
+    # Calculate duration for each individual step removing the added steps
     diffti = cumtsec[1:,1]-cumtsec[0:-1,1]
     diffti = torch.concat((torch.unsqueeze(cumtsec[0,0],dim=-1),diffti),dim=-1)
-
-
-
     diffti = diffti[2:]
-    diffFi = TrueFracMDD
-
+    
+    # Resum the gas fractions into cumulative space that doesn't include the two added steps
     sumf_MDD = torch.cumsum(diffFi,axis=0)
-    # if torch.isnan(sumf_MDD[-1]):
-    #     breakpoint()
 
 
+    # Calculate Daa from the MDD model using fechtig and kalbitzer
 
     Daa_MDD_a[0] = ( (sumf_MDD[0]**2 - 0.**2 )*torch.pi/(36*(diffti[0])))
 
