@@ -17,6 +17,7 @@ class Dataset(pd.DataFrame):
             self.np_thr = torch.tensor(self["thr"].values) 
             self.np_lnDaa = torch.tensor(self["ln(D/a^2)"].values) 
             self.np_Fi_exp = torch.tensor(self["Fi"].values)
+            self.uncert = torch.tensor(self["Fi uncertainty"].values)
 
             #self.lookup_table = pd.read_parquet("../../DiffusionLookup.parquet")
 

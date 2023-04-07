@@ -1,9 +1,8 @@
 from diffusion_optimizer.neighborhood.objective import Objective
-from diffusion_optimizer.utils.utils import forwardModelKinetics
+from diffusion_optimizer.utils.utils_pytorch import forwardModelKinetics
 import torch
-import math as math 
 
-class DiffusionObjective(Objective):
+class DiffusionObjective_pytorch(Objective):
     
     # override evaluate function
     def __call__(self, X): #__call__ #evaluate
@@ -23,11 +22,10 @@ class DiffusionObjective(Objective):
         # fractions over all steps.
         
         #Time both of these
-        X = torch.as_tensor(X)
-        #total_moles = X[0]
-        #X = X[1:]
+       
         
-
+        
+        print(X)
         # Unpack the parameters and spit out a high misfit value if constraints are violated
         if len(X) <= 3:
             ndom = 1
@@ -40,32 +38,43 @@ class DiffusionObjective(Objective):
         lnD0aa = temp[0:ndom]
         fracstemp = temp[ndom:]
 
-                
+        val = 0
+        for i in range(len(fracstemp)):
+            val+=fracstemp[i]
+            if fracstemp[i] < 0:
+                return torch.tensor(-1*fracstemp[i]*10.**16,requires_grad=True)
+
         #This punishes the model for proposing input fractions that don't add up to 1.0
-        # if torch.sum(fracstemp,axis=0,keepdim = True)>0.999:
-        #     return torch.sum(fracstemp,axis=0,keepdim = True).item()*100
+        if val>0.999:
+            return val*100
 
         # Now that we know the fracs add up to one, calculate the fraction for the last domain.
         # This is determined by the other fractions.
-        sumTemp = (1-torch.sum(fracstemp,axis=0,keepdim = True))
-        fracs = torch.concat((fracstemp,sumTemp),dim=-1)
 
+        val = 0
+
+        for i in range(len(fracstemp)):
+            val += fracstemp[i].item()
+        
+        sumTemp = torch.tensor(1-val)
+        fracs = [fracstemp,sumTemp]
+ 
         # Report high misfit values if conditions are not met
 
         # if any LnD0aa is greater than the previous, punish the model. This reduces model search space.
         
         # First, calculate the difference between each set of LnD0aa
-        # lnd0_off_counter = 0
-        # for i in range(len(lnD0aa)-1):
-        #     if lnD0aa[i+1]>lnD0aa[i]:
-        #         lnd0_off_counter += (torch.abs((lnD0aa[i+1]-lnD0aa[i])/lnD0aa[i+1]))*10**17
+        lnd0_off_counter = 0
+        for i in range(len(lnD0aa)-1):
+            if lnD0aa[i+1]>lnD0aa[i]:
+                lnd0_off_counter += (torch.abs((lnD0aa[i+1]-lnD0aa[i])/lnD0aa[i+1]))*10**17
 
-        # # Now, return this misfit value if any of the LnD0aa values were greater than their previous.
-        # # The idea is that the model is punished more greatly for having more of these set incorrectly. 
-        # # Additionally, the magnitude is also implicitly considered.
-        # for i in range(len(lnD0aa)-1):
-        #     if lnD0aa[i+1]>lnD0aa[i]:
-        #         return lnd0_off_counter.item()
+        # Now, return this misfit value if any of the LnD0aa values were greater than their previous.
+        # The idea is that the model is punished more greatly for having more of these set incorrectly. 
+        # Additionally, the magnitude is also implicitly considered.
+        for i in range(len(lnD0aa)-1):
+            if lnD0aa[i+1]>lnD0aa[i]:
+                return lnd0_off_counter.item()
         
         # Forward model the results so that we can calculate the misfit.
         fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
@@ -99,7 +108,6 @@ class DiffusionObjective(Objective):
         ran_out_too_early = torch.tensor(0)
         if sum(indicesForPunishment>0):
             ran_out_too_early = sum(indicesForPunishment)
-
             pass
 
 
@@ -110,38 +118,22 @@ class DiffusionObjective(Objective):
 
             return 10**10
         
-        #exp_moles = torch.tensor(data.M)
-        #total_moles = torch.sum(exp_moles)
-
-
         # Calculate L1 loss
         # Production notes... 
         # 1. We should also try the L2 loss
         # 2. We should also consider trying percent loss, since our values span several orders of magnitude. Could maybe even try log fits..
-        #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
-        
-        
-        #moles_MDD = trueFracMDD * total_moles
-
-        #misfit = torch.abs(exp_moles-moles_MDD)
-       
         misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
-        #misfit = (TrueFracFi-trueFracMDD)**2
-        #misfit = ((TrueFracFi-trueFracMDD)**2)/(1/data.uncert)
 
         # Add a misfit penalty of 1 for each heating step that ran out of gas early.
         # THOUGHT: I'M CURENTLY OMITTING THE LAST TWO INDICES INSTEAD OF JUST THE LAST 1.
         # I NOTICED THAT THIS PROVIDED SOMEWHAT BETTER MODEL BEHAVIOR, THOUGH IT WOULD BE MORE SCIENTIFICALLY SOUND TO 
         # ONLY ASSERT THAT THE LAST STEP WAS ==1.
-        #misfit[0:-2][indicesForPunishment] += 1
         misfit[0:-2][indicesForPunishment] += 1
 
         # Return the sum of the residuals
         #misfit = torch.sum(misfit)+not_released_flag
-        if math.isnan((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()):
-            breakpoint()
-        #return (((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item())/len(data.M))/(10**10)
+        #return (torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()
 
-        output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
+        output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early)
         # output = torch.tensor(output,requires_grad=True)
         return output

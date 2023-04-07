@@ -5,17 +5,18 @@ from numpy.linalg import eigvals
 import pandas as pd
 import numpy as np
 from diffusion_optimizer.neighborhood.dataset import Dataset
-from diffusion_optimizer.diffusion_objective import DiffusionObjective
+from diffusion_optimizer.diffusion_objective_no_extra_3HeParam import DiffusionObjective_no_extra
 import torch as torch
-from diffusion_optimizer.utils.utils import forwardModelKinetics
+from diffusion_optimizer.utils.utils_no_extra_3HeParam import forwardModelKinetics
 import matplotlib.pyplot as plt
 from scipy.optimize import NonlinearConstraint
 from con import con
 
 
 def plot_results(params,dataset,objective):
+    #params = torch.tensor([98.4302288,17.1535987,17.1473468,16.0422343,14.6013811,11.6164845,6.53169108,0.218205613,0.106816304,0.586360973,0.0438093845,0.0261573749])
     
-    #params = torch.tensor([88.7619142,16.5413564,14.9448063,13.6799605,12.6368934,10.492242,8.73869894,5.87199889,0.438752157,0.140052258,0.158637039,0.150240531,0.050724679,0.0480670674])
+    params = params[1:]
 
     data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr),dataset.np_lnDaa,torch.tensor(dataset.Fi)),objective.lookup_table)
     print(data)
@@ -43,7 +44,6 @@ def plot_results(params,dataset,objective):
     plt.xlabel("step number")
     plt.ylabel("Fractional Release (%)")
     plt.show()
-
 def get_errors(objective, result, norm_dist=1.96, step=1e-5):
     hessian = Hessian(objective, step=step, full_output=False)(result)
     # check if the matrix is positive definite
@@ -58,9 +58,9 @@ def get_errors(objective, result, norm_dist=1.96, step=1e-5):
         return None
 
 dataset = Dataset(pd.read_csv("/Users/andrewgorin/diffusion_optimizer/main/output/default_output/data4Optimizer.csv"))
-objective = DiffusionObjective(dataset, [],pickle_path = "/Users/andrewgorin/diffusion_optimizer/diffusion_optimizer/src/diffusion_optimizer/lookup_table.pkl")
-
-#nlc = NonlinearConstraint(con,lb =[0,-np.inf],ub = [np.inf,0])
+objective = DiffusionObjective_no_extra(dataset, [1,2,3,4,5],pickle_path = "/Users/andrewgorin/diffusion_optimizer/diffusion_optimizer/src/diffusion_optimizer/lookup_table.pkl")
+# used 1-7 for km95-28, used 1-5 for km95-6, and 1-6 for km96-20db,1-7 for km95-15, 1-5 for km95-6-db, 1-5 for km95-15-De
+#nlc = NonlinearConstraint(con,lb =[0,-np.inf],ub = [np.inf,0]
 nlc = NonlinearConstraint(con,lb =[0,0],ub = [np.inf,np.inf])
 
 
@@ -70,14 +70,17 @@ nlc = NonlinearConstraint(con,lb =[0,0],ub = [np.inf,np.inf])
 result = differential_evolution(
     objective, 
     [
+        (5153057440.31,5262112341.17),
+        (0,110), 
+        (0,25),
+        (0,25),
+        (0,25),
+        (0,25),
+ 
+    
 
-        (0, 110), 
-        (0, 25), 
-        (0,25),
-        (0,25),
-        (0,25),
 
-        (0.001, 1),
+        (0.001,1),
         (0.001,1),
         (0.001,1)
 
@@ -87,12 +90,13 @@ result = differential_evolution(
 
 
 
+
+
+
     ], 
     disp=True, 
-    tol=0.01,
-
-
-    maxiter=100000000000000000,
+    tol=0.0001,
+    maxiter=100000000,
     constraints = nlc
 )
 

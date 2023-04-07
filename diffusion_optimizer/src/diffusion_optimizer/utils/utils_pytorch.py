@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import torch
 import random
-import math as math
 
 
 def D0calc_MonteCarloErrors(expdata):
@@ -13,6 +12,7 @@ def D0calc_MonteCarloErrors(expdata):
     # heating step duration (time in hours),
     # M (measured concentration in cps, atoms, or moles), delM (same units)
     
+
     # Calculate diffusivities from the previous experiment
     TC = expdata.loc[:,"TC"].array
     thr = expdata.loc[:,"thr"].array
@@ -106,7 +106,7 @@ def D0calc_MonteCarloErrors(expdata):
     for i in range(n_sim):
         MCFi[:,i] = MCSi[:,i]/np.amax(MCSi[:,i])
     for i in range(nstep):
-        #delMCFi[i] = (np.amax(MCFi[i,:],0) - np.amin(MCFi[i,:],0))/2
+        delMCFi[i] = (np.amax(MCFi[i,:],0) - np.amin(MCFi[i,:],0))/2
         MCFimean[i] = np.mean(MCFi[i,:],0)
     
     #Initialize vectors
@@ -120,12 +120,8 @@ def D0calc_MonteCarloErrors(expdata):
     for m in range(1,nstep): #For step of each experiment...
         for n in range(n_sim):
             MCdiffFi[m,n] = MCFi[m,n] - MCFi[m-1,n] #calculate the fraction released at each step
-            MCdiffFi[0,n] = MCFi[0,n]
-    for m in range(0,nstep):
-        delMCFi[m] = np.std(MCdiffFi[m,:])
     for n in range(n_sim): #For each first step of an experiment, insert 0 for previous amount released
         MCDR2_a[0,n] = ((MCFi[m,n])**2 - (MCFi[m-1,n])**2 )*math.pi/(36*(diffti[m-1]))
-        
     for m in range(1,nstep): #Calculate fechtig and kalbitzer equations for each fraction
         for n in range(n_sim):
             MCDR2_a[m,n] = ( (MCFi[m,n])**2 - (MCFi[m-1,n])**2 )*math.pi/(36*(diffti[m-1]));
@@ -133,9 +129,6 @@ def D0calc_MonteCarloErrors(expdata):
                             - (2*math.pi)*( np.sqrt(1-(math.pi/3)*MCFi[m,n]) \
                             -np.sqrt(1 - (math.pi/3)*MCFi[m-1,n]) ))
             MCDR2_c[m,n] = (1/(math.pi*math.pi*diffti[m-1]))*(np.log((1-MCFi[m-1,n])/(1-MCFi[m,n])));
-    MCdiffFiFinal = np.zeros([nstep])
-    for m in range(0,nstep):
-        MCdiffFiFinal[m] = np.mean(MCdiffFi[m,:])
 
     use_a_MC = (MCFi<= 0.1) & (MCFi> 0.00000001)
     use_b_MC = (MCFi > 0.1) & (MCFi<= 0.9)
@@ -189,9 +182,31 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
 
 
     # Copy the parameters into dimensions that mirror those of the experiment schedule to increase calculation speed.
-    lnD0aa = torch.tile(temp[0:ndom],(len(thr)+2,1)) # Do this for LnD0aa
-    fracstemp = temp[ndom:] # Grab fracs that were input (one will be missing because it is pre-determined by the others)
-    fracs = torch.tile(torch.concat((fracstemp,1-torch.sum(fracstemp,axis=0,keepdim=True)),axis=-1),(len(thr)+2,1)) # Add the last frac as 1-sum(other fracs)
+    lnD0aa_temp = []
+    for i in range(0,ndom):
+        lnD0aa_temp.append(temp[i])
+    
+    lnD0aa = torch.tensor(lnD0aa_temp)
+    lnD0aa = torch.tile(lnD0aa,(len(thr)+2,1)) # Do this for LnD0aa
+    
+    frac_ = []
+    frac_sum = 0
+    for i in range(ndom,len(temp)):
+        frac_.append(temp[i])
+        frac_sum+=temp[i]
+    
+
+    
+    #fracstemp = temp[ndom:] # Grab fracs that were input (one will be missing because it is pre-determined by the others)
+    fracs = frac_[0]
+    for i in range(1,len(frac_)):
+        fracs = torch.cat((fracs,frac_[i]))    
+
+ 
+    fracs = torch.cat((fracs,1-frac_sum),0)
+
+
+    fracs = torch.tile(fracs,(len(thr)+2,1)) # Add the last frac as 1-sum(other fracs)
     Ea = torch.tile(kinetics[0],(len(thr)+2,ndom)) # Do for Ea
 
 
@@ -205,7 +220,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # that they wont lease any helium during irradiation and storage.
     
     # Currently, I'm Manually adding in steps from the irridiation and from the lab storage
-    seconds_since_irrad = torch.tensor(110937600)  # seconds
+    seconds_since_irrad = torch.tensor(110073600)  # seconds
     irrad_duration_sec = torch.tensor(5*3600) # in seconds
     irrad_T = torch.tensor(40) # in C
     storage_T = torch.tensor(21.1111111) # in C
@@ -239,7 +254,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # Calculate Dtaa in incremental (not cumulative) form including the added heating steps
     DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
     DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
-
+  
     # Make the correction for P_D vs D_only
     for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
         if DtaaForSum[0,i] <= 1.347419e-17:
@@ -247,7 +262,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
         elif DtaaForSum[0,i] >= 4.698221e-06:
             pass
         else:
-            DtaaForSum[0,i] *= lookup_table(DtaaForSum[0,i])
+            DtaaForSum[0,i] *= torch.tensor(lookup_table(DtaaForSum[0,i].detach().numpy()))
 
     # Calculate Dtaa in cumulative form.
     Dtaa = torch.cumsum(DtaaForSum, axis = 0)
@@ -260,7 +275,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
             ((torch.pi**2)*Dtaa[Bt>0.0091])
     f[Bt >1.8] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[Bt > 1.8])
 
-    
+
     # Multiply each gas realease by the percent gas located in each domain (prescribed by input)
     f_MDD = f*fracs
 
@@ -270,7 +285,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
 
     # If the second heating step gets gas release all the way to 100%, then the rest of the calculation is not necessary. 
     # Return that sumf_MDD == 0
-    if (torch.round(sumf_MDD[2],decimals=6) == 1):
+    if (sumf_MDD[2] == 1):
         return (TC[2:], torch.zeros(len(sumf_MDD)-2),torch.zeros(len(sumf_MDD)-2),0)
         
 
@@ -335,5 +350,6 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     
 
     lnDaa_MDD = torch.log(Daa_MDD)
+
 
     return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released)

@@ -1,5 +1,5 @@
 from diffusion_optimizer.neighborhood.objective import Objective
-from diffusion_optimizer.utils.utils import forwardModelKinetics
+from diffusion_optimizer.utils.utils_3HeParam import forwardModelKinetics
 import torch
 import math as math 
 
@@ -24,8 +24,8 @@ class DiffusionObjective(Objective):
         
         #Time both of these
         X = torch.as_tensor(X)
-        #total_moles = X[0]
-        #X = X[1:]
+        total_moles = X[0]
+        X = X[1:]
         
 
         # Unpack the parameters and spit out a high misfit value if constraints are violated
@@ -108,9 +108,9 @@ class DiffusionObjective(Objective):
         # have measured any He in the lab. 
         if torch.sum(trueFracMDD) == 0:
 
-            return 10**10
+            return 10**17
         
-        #exp_moles = torch.tensor(data.M)
+        exp_moles = torch.tensor(data.M)
         #total_moles = torch.sum(exp_moles)
 
 
@@ -120,12 +120,11 @@ class DiffusionObjective(Objective):
         # 2. We should also consider trying percent loss, since our values span several orders of magnitude. Could maybe even try log fits..
         #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
         
-        
-        #moles_MDD = trueFracMDD * total_moles
+        moles_MDD = trueFracMDD * total_moles
 
-        #misfit = torch.abs(exp_moles-moles_MDD)
+        misfit = ((exp_moles-moles_MDD)**2)/(torch.tensor(data.delM))#Let's ignore this part for now..
        
-        misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
+        #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
         #misfit = (TrueFracFi-trueFracMDD)**2
         #misfit = ((TrueFracFi-trueFracMDD)**2)/(1/data.uncert)
 
@@ -134,14 +133,16 @@ class DiffusionObjective(Objective):
         # I NOTICED THAT THIS PROVIDED SOMEWHAT BETTER MODEL BEHAVIOR, THOUGH IT WOULD BE MORE SCIENTIFICALLY SOUND TO 
         # ONLY ASSERT THAT THE LAST STEP WAS ==1.
         #misfit[0:-2][indicesForPunishment] += 1
-        misfit[0:-2][indicesForPunishment] += 1
+        
+        misfit[0:-2][indicesForPunishment] += 10**10
 
         # Return the sum of the residuals
         #misfit = torch.sum(misfit)+not_released_flag
         if math.isnan((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()):
             breakpoint()
-        #return (((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item())/len(data.M))/(10**10)
 
-        output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
+        return (((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item())/len(data.M))
+
+        # output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
         # output = torch.tensor(output,requires_grad=True)
-        return output
+        # return output
