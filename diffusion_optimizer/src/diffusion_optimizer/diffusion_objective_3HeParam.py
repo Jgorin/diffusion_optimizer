@@ -122,7 +122,7 @@ class DiffusionObjective(Objective):
         
         moles_MDD = trueFracMDD * total_moles
 
-        misfit = ((exp_moles-moles_MDD)**2)/(torch.tensor(data.delM))#Let's ignore this part for now..
+        misfit = torch.absolute(exp_moles-moles_MDD) #Let's ignore this part for now..
        
         #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
         #misfit = (TrueFracFi-trueFracMDD)**2

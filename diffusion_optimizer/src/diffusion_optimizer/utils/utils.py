@@ -6,7 +6,7 @@ import random
 import math as math
 
 
-def D0calc_MonteCarloErrors(expdata):
+def D0calc_MonteCarloErrors(data):
     # Function for calculating D0 and D/a^2 from experimental data. Input should be a
     # Pandas DataFrame with columns "TC", "thr",
     # M, and, and delM, which correspond to heating temperature (deg C), 
@@ -14,10 +14,10 @@ def D0calc_MonteCarloErrors(expdata):
     # M (measured concentration in cps, atoms, or moles), delM (same units)
     
     # Calculate diffusivities from the previous experiment
-    TC = expdata.loc[:,"TC"].array
-    thr = expdata.loc[:,"thr"].array
-    M = expdata.loc[:,"M"].array
-    delM = expdata.loc[:,"delM"].array
+    TC = data.loc[:,"TC"].array
+    thr = data.loc[:,"thr"].array
+    M = data.loc[:,"M"].array
+    delM = data.loc[:,"delM"].array
 
     #Check if units are in minutes and convert from hours to minutes if necesssary
     if thr[1]>4:
@@ -154,45 +154,45 @@ def D0calc_MonteCarloErrors(expdata):
                             "ln(D/a^2)": np.log(DR2),"ln(D/a^2)-del": np.log(DR2-MCDR2_uncert.ravel()), \
                             "ln(D/a^2)+del": np.log(DR2+MCDR2_uncert.ravel()) })
 
-def forwardModelKinetics(kinetics,expData,lookup_table): 
-    # kinetics: (Ea, lnd0aa_x, fracs_x). To make this compatible with other functions, if there are x fracs, input x-1 fractions, and the code will determine the
+def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
+    # X: (Ea, lnd0aa_x, fracs_x). To make this compatible with other functions, if there are x fracs, input x-1 fractions, and the code will determine the
     # final fraction.
 
     R = 0.008314 #gas constant
     torch.pi = torch.acos(torch.zeros(1)).item() * 2
 
     # Infer the number of domains from input
-    if len(kinetics) <= 3:
+    if len(X) <= 3:
         ndom = 1
     else:
-        ndom = (len(kinetics))//2
+        ndom = (len(X))//2
 
     # Make a subset of X, removing the Ea so that we have an even number of elements
-    temp = kinetics[1:]
+    temp = X[1:]
 
-    if type(expData) is tuple: # Some functions use fwdModelKinetics by inserting expData as  tuple, while others input as a dataset
-        TC = expData[0]
-        thr = expData[1]
+    if type(data) is tuple: # Some functions use fwdModelX by inserting data as  tuple, while others input as a dataset
+        TC = data[0]
+        thr = data[1]
         if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
             thr = thr/60
-        lnDaa = expData[2]
-        Fi = expData[3]
+        lnDaa = data[2]
+        Fi = data[3]
 
   
-    else: # expData is type Dataset.
-        TC = expData.np_TC
-        thr = expData.np_thr
+    else: # data is type Dataset.
+        TC = data.np_TC
+        thr = data.np_thr
         if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
             thr = thr/60
-        lnDaa = expData.np_lnDaa
-        Fi = expData.np_Fi_exp
+        lnDaa = data.np_lnDaa
+        Fi = data.np_Fi_exp
 
 
     # Copy the parameters into dimensions that mirror those of the experiment schedule to increase calculation speed.
     lnD0aa = torch.tile(temp[0:ndom],(len(thr)+2,1)) # Do this for LnD0aa
     fracstemp = temp[ndom:] # Grab fracs that were input (one will be missing because it is pre-determined by the others)
     fracs = torch.tile(torch.concat((fracstemp,1-torch.sum(fracstemp,axis=0,keepdim=True)),axis=-1),(len(thr)+2,1)) # Add the last frac as 1-sum(other fracs)
-    Ea = torch.tile(kinetics[0],(len(thr)+2,ndom)) # Do for Ea
+    Ea = torch.tile(X[0],(len(thr)+2,ndom)) # Do for Ea
 
 
     # THIS IS TEMPORARY-- WE NEED TO ADD THIS AS AN INPUT.. THE INPUTS WILL NEED TO BE
@@ -205,6 +205,8 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # that they wont lease any helium during irradiation and storage.
     
     # Currently, I'm Manually adding in steps from the irridiation and from the lab storage
+
+
     seconds_since_irrad = torch.tensor(110937600)  # seconds
     irrad_duration_sec = torch.tensor(5*3600) # in seconds
     irrad_T = torch.tensor(40) # in C
@@ -260,9 +262,24 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
             ((torch.pi**2)*Dtaa[Bt>0.0091])
     f[Bt >1.8] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[Bt > 1.8])
 
-    
+    for i in range(1,len(f[1:,:])):
+        temp =  f[i,:] - f[i-1,:]
+        temp = torch.ceil(temp) 
+        f[i,:] = f[i-1,:]*(1-temp) + f[i,:]*temp
+        
+
+
+
+  
+
+
+             #if any negative values when you calculate the frac difference in a single domain
+
+
+
     # Multiply each gas realease by the percent gas located in each domain (prescribed by input)
     f_MDD = f*fracs
+
 
     # Renormalize everything by first calculating the fractional releases at each step, summing back up, 
     # and then dividing by the max released in each fraction. This simulates how we would have measured and calculated this in the lab.
@@ -336,4 +353,10 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
 
     lnDaa_MDD = torch.log(Daa_MDD)
 
-    return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released)
+
+    # for i in range(len(sumf_MDD)):
+    #     if sumf_MDD[i] <0:
+    #         breakpoint()
+
+
+    return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released) #Temperatures, 

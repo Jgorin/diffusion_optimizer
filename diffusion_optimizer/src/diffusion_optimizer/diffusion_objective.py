@@ -8,7 +8,7 @@ class DiffusionObjective(Objective):
     # override evaluate function
     def __call__(self, X): #__call__ #evaluate
         data = self.dataset
-        omitValueIndices = self.omitValueIndices
+        #omitValueIndices = self.omitValueIndices
         torch.pi = torch.acos(torch.zeros(1)).item() * 2
         # Below here will eventually get turned into a function
         # Code written by Marissa Tremblay and modified/transcribed into Python by Drew Gorin.
@@ -144,4 +144,6 @@ class DiffusionObjective(Objective):
 
         output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
         # output = torch.tensor(output,requires_grad=True)
+
+
         return output

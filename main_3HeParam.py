@@ -98,7 +98,7 @@ result = differential_evolution(
 
     ], 
     disp=True, 
-    #tol=0.0001,
+    tol=0.000001,
 
 
     maxiter=100000000000000000,
