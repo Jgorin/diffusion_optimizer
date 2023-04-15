@@ -170,22 +170,11 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     # Make a subset of X, removing the Ea so that we have an even number of elements
     temp = X[1:]
 
-    if type(data) is tuple: # Some functions use fwdModelX by inserting data as  tuple, while others input as a dataset
-        TC = data[0]
-        thr = data[1]
-        if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
-            thr = thr/60
-        lnDaa = data[2]
-        Fi = data[3]
-
-  
-    else: # data is type Dataset.
-        TC = data.np_TC
-        thr = data.np_thr
-        if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
-            thr = thr/60
-        lnDaa = data.np_lnDaa
-        Fi = data.np_Fi_exp
+    TC = data.np_TC
+    thr = data.np_thr
+    if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
+        thr = thr/60
+    Fi = data.np_Fi_exp
 
 
     # Copy the parameters into dimensions that mirror those of the experiment schedule to increase calculation speed.

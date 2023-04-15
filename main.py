@@ -15,9 +15,10 @@ from con import con
 
 def plot_results(params,dataset,objective):
     
-    #params = torch.tensor([88.7619142,16.5413564,14.9448063,13.6799605,12.6368934,10.492242,8.73869894,5.87199889,0.438752157,0.140052258,0.158637039,0.150240531,0.050724679,0.0480670674])
+    #params = torch.tensor([90.5767031,18.1067452,17.9685244,16.7872055,15.7741855,14.463697,10.6800595,7.63288036,0.178605839,0.793688699,0.0117578002,0.00885591797,0.00537106933,0.00100333531])
 
     data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr),dataset.np_lnDaa,torch.tensor(dataset.Fi)),objective.lookup_table)
+   
     print(data)
     T_plot = 10000/(dataset["TC"]+273.15)
     
@@ -71,19 +72,22 @@ result = differential_evolution(
     objective, 
     [
 
-        (0, 150), 
-        (-10, 35), 
-        (-10,35),
-        (-10,35),
-        (-10,35),
-        (-10,35),
-        (-10,35),
+        (60, 110), 
+        (0, 25), 
+        (0,25),
+        (0,25),
+        (0,25),
+        (0,25),
+        (0,25),
+        (0.001,1),
+        (0.001,1),
+        (0.001,1),
+        (0.001,1),
+        (0.001,1),
 
-        (0.001, 1),
-        (0.001,1),
-        (0.001,1),
-        (0.001,1),
-        (0.001,1)
+
+
+
 
 
 
@@ -93,10 +97,10 @@ result = differential_evolution(
 
     ], 
     disp=True, 
-    tol=0.01,
+    tol=0.00001,
 
-
-    maxiter=100000000000000000,
+    
+    maxiter=1000000000000000,
     constraints = nlc
 )
 

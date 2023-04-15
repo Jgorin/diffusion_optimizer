@@ -6,8 +6,10 @@ import math as math
 class DiffusionObjective(Objective):
     
     # override evaluate function
-    def __call__(self, X): #__call__ #evaluate
-        data = self.dataset
+    def __call__(self, X,data, expected_y): #__call__ #evaluate
+        #time, temperature, fraction 
+        
+        
         #omitValueIndices = self.omitValueIndices
         torch.pi = torch.acos(torch.zeros(1)).item() * 2
         # Below here will eventually get turned into a function
@@ -22,11 +24,7 @@ class DiffusionObjective(Objective):
         # sum of absolute differences between the observed and modeled release
         # fractions over all steps.
         
-        #Time both of these
-        X = torch.as_tensor(X)
-        #total_moles = X[0]
-        #X = X[1:]
-        
+
 
         # Unpack the parameters and spit out a high misfit value if constraints are violated
         if len(X) <= 3:
@@ -76,8 +74,9 @@ class DiffusionObjective(Objective):
         thr = data.np_thr # Time in hours
         if thr[1]>10: # If time > 10, then units are likely in minutes, not hours-- convert to minutes.
             thr = thr/60
-        lnDaa = data.np_lnDaa # LnDaa (1/s)
+        
         Fi_exp = data.np_Fi_exp #Gas fraction released for each heating step in experiment
+        
         Fi_MDD = fwdModelResults[2] # Gas fraction released for each heating step in model experiment
         not_released_flag = fwdModelResults[-1] # A flag for when the modeled results don't add to 1 before they get renormalized. This gets added to the misfit.
 

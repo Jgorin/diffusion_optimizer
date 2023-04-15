@@ -18,6 +18,14 @@ class Dataset(pd.DataFrame):
             self.np_lnDaa = torch.tensor(self["ln(D/a^2)"].values) 
             self.np_Fi_exp = torch.tensor(self["Fi"].values)
             self.uncert = torch.tensor(self["Fi uncertainty"].values)
+            self.expected_y = None
+
+
+    def set_expected_y(self,y):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            self.expected_y = y
+
 
             #self.lookup_table = pd.read_parquet("../../DiffusionLookup.parquet")
 
