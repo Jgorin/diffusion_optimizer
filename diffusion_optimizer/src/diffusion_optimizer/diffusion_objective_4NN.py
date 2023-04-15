@@ -50,21 +50,6 @@ class DiffusionObjective(Objective):
 
         # Report high misfit values if conditions are not met
 
-        # if any LnD0aa is greater than the previous, punish the model. This reduces model search space.
-        
-        # First, calculate the difference between each set of LnD0aa
-        # lnd0_off_counter = 0
-        # for i in range(len(lnD0aa)-1):
-        #     if lnD0aa[i+1]>lnD0aa[i]:
-        #         lnd0_off_counter += (torch.abs((lnD0aa[i+1]-lnD0aa[i])/lnD0aa[i+1]))*10**17
-
-        # # Now, return this misfit value if any of the LnD0aa values were greater than their previous.
-        # # The idea is that the model is punished more greatly for having more of these set incorrectly. 
-        # # Additionally, the magnitude is also implicitly considered.
-        # for i in range(len(lnD0aa)-1):
-        #     if lnD0aa[i+1]>lnD0aa[i]:
-        #         return lnd0_off_counter.item()
-        
         # Forward model the results so that we can calculate the misfit.
         fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
 
@@ -75,23 +60,17 @@ class DiffusionObjective(Objective):
         if thr[1]>10: # If time > 10, then units are likely in minutes, not hours-- convert to minutes.
             thr = thr/60
         
-        Fi_exp = data.np_Fi_exp #Gas fraction released for each heating step in experiment
+        expected_y = data.np_Fi_exp #Gas fraction released for each heating step in experiment
         
         Fi_MDD = fwdModelResults[2] # Gas fraction released for each heating step in model experiment
         not_released_flag = fwdModelResults[-1] # A flag for when the modeled results don't add to 1 before they get renormalized. This gets added to the misfit.
 
-        # Calculate the Fraction released for each heating step in the real experiment
-        TrueFracFi = (Fi_exp[1:]-Fi_exp[0:-1]) 
-        TrueFracFi = torch.concat((torch.unsqueeze(Fi_exp[0],dim=-1),TrueFracFi),dim=-1)
+
         
         # Calculate the fraction released for each heating step in the modeled experiment
         trueFracMDD = Fi_MDD[1:]-Fi_MDD[0:-1]
         trueFracMDD = torch.concat((torch.unsqueeze(Fi_MDD[0],dim=-1),trueFracMDD),dim=-1)
        
-        # Punish the model if the cumulative gas fraction reaches 1 before the last release step. 
-        # II CURRENTLY HAVE THIS OFF, BUT IT SEEMS LIKE THIS MIGHT BE USEFUL AT SOME POINT. Though,
-        # maybe it doesn't matter because of my not_released_flag
-
         #  TWO THINGS HERE. 
         # 1. I SHOULD EXPERIMENT WITH THE NUMBER OF DECIMALS TO ROUND TO.
         # 2. I SHOULD CONSIDER IMPLEMENTING A PUNISHMENT WITH A GRADIENT INSTEAD OF A FLAT PUNISHMENT.
@@ -125,7 +104,7 @@ class DiffusionObjective(Objective):
 
         #misfit = torch.abs(exp_moles-moles_MDD)
        
-        misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
+        misfit = torch.absolute(expected_y-trueFracMDD) # Experimental values minus the values predicted by the diffsuion model given the input X parameters
         #misfit = (TrueFracFi-trueFracMDD)**2
         #misfit = ((TrueFracFi-trueFracMDD)**2)/(1/data.uncert)
 
