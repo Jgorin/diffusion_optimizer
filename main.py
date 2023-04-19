@@ -15,7 +15,7 @@ from con import con
 
 def plot_results(params,dataset,objective):
     
-    #params = torch.tensor([90.5767031,18.1067452,17.9685244,16.7872055,15.7741855,14.463697,10.6800595,7.63288036,0.178605839,0.793688699,0.0117578002,0.00885591797,0.00537106933,0.00100333531])
+    #params = torch.tensor([92.8597496,19.3075859,16.7392942,13.448396,12.0199871,7.57389364,0.928117128,0.012069709,0.0364852194,0.0225384812])
 
     data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr),dataset.np_lnDaa,torch.tensor(dataset.Fi)),objective.lookup_table)
    
@@ -72,35 +72,20 @@ result = differential_evolution(
     objective, 
     [
 
-        (60, 110), 
+        (60, 150), 
         (0, 25), 
         (0,25),
         (0,25),
-        (0,25),
-        (0,25),
-        (0,25),
         (0.001,1),
         (0.001,1),
-        (0.001,1),
-        (0.001,1),
-        (0.001,1),
-
-
-
-
-
-
-
-
-
 
 
     ], 
     disp=True, 
-    tol=0.00001,
+    tol=0.01,
 
     
-    maxiter=1000000000000000,
+    maxiter=100000000000000000,
     constraints = nlc
 )
 

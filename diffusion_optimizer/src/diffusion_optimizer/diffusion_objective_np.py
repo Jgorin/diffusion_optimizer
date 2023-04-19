@@ -9,7 +9,7 @@ class DiffusionObjective(Objective):
     def __call__(self, X): #__call__ #evaluate
         data = self.dataset
         #omitValueIndices = self.omitValueIndices
-        torch.pi = torch.acos(torch.zeros(1)).item() * 2
+
         # Below here will eventually get turned into a function
         # Code written by Marissa Tremblay and modified/transcribed into Python by Drew Gorin.
         #Last modified 1.2023.
@@ -23,7 +23,7 @@ class DiffusionObjective(Objective):
         # fractions over all steps.
         
         #Time both of these
-        X = torch.as_tensor(X)
+
         #total_moles = X[0]
         #X = X[1:]
         
@@ -47,25 +47,12 @@ class DiffusionObjective(Objective):
 
         # Now that we know the fracs add up to one, calculate the fraction for the last domain.
         # This is determined by the other fractions.
-        sumTemp = (1-torch.sum(fracstemp,axis=0,keepdim = True))
-        fracs = torch.concat((fracstemp,sumTemp),dim=-1)
+        sumTemp = 1 - np.sum(fracstemp, axis=0, keepdims=True)
+        fracs = np.concatenate((fracstemp, sumTemp), axis=-1)
 
         # Report high misfit values if conditions are not met
 
         # if any LnD0aa is greater than the previous, punish the model. This reduces model search space.
-        
-        # First, calculate the difference between each set of LnD0aa
-        # lnd0_off_counter = 0
-        # for i in range(len(lnD0aa)-1):
-        #     if lnD0aa[i+1]>lnD0aa[i]:
-        #         lnd0_off_counter += (torch.abs((lnD0aa[i+1]-lnD0aa[i])/lnD0aa[i+1]))*10**17
-
-        # # Now, return this misfit value if any of the LnD0aa values were greater than their previous.
-        # # The idea is that the model is punished more greatly for having more of these set incorrectly. 
-        # # Additionally, the magnitude is also implicitly considered.
-        # for i in range(len(lnD0aa)-1):
-        #     if lnD0aa[i+1]>lnD0aa[i]:
-        #         return lnd0_off_counter.item()
         
         # Forward model the results so that we can calculate the misfit.
         fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
