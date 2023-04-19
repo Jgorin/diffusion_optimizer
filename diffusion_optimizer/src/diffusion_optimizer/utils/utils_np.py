@@ -1,5 +1,5 @@
 import math
-import numpy as np
+import jax.numpy as np
 import pandas as pd
 import random
 import math as math
@@ -234,17 +234,22 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     DtaaForSum = np.zeros(Daa.shape)
 
     # Calculate Dtaa in incremental (not cumulative) form including the added heating steps
-    DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
-    DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
+    DtaaForSum = DtaaForSum.at[0,:].set(Daa[0,:]*tsec[0,:])
+    #DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
+    DtaaForSum = DtaaForSum.at[1:,:].set(Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:]))
+    #DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
 
     # Make the correction for P_D vs D_only
-    for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
-        if DtaaForSum[0,i] <= 1.347419e-17:
-            DtaaForSum[0,i] *= 0
-        elif DtaaForSum[0,i] >= 4.698221e-06:
-            pass
-        else:
-            DtaaForSum[0,i] *= lookup_table(DtaaForSum[0,i])
+    # for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
+    #     if DtaaForSum[0,i] <= 1.347419e-17:
+    #         DtaaForSum = DtaaForSum.at[0,i].set(0)
+    #         #DtaaForSum[0,i] *= 0
+    #     elif DtaaForSum[0,i] >= 4.698221e-06:
+    #         pass
+    #     else:
+    #         breakpoint()
+    #         DtaaForSum = DtaaForSum.at[0,i].set(lookup_table(DtaaForSum[0,i]))
+    #         #DtaaForSum[0,i] *= lookup_table(DtaaForSum[0,i])
 
     # Calculate Dtaa in cumulative form.
     Dtaa = np.cumsum(DtaaForSum, axis=0)
@@ -252,14 +257,18 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
         
     Bt = Dtaa*math.pi**2
     f = (6/(math.pi**(3/2)))*np.sqrt((math.pi**2)*Dtaa)
-    f[Bt>0.0091] = (6/(np.pi**(3/2)))*np.sqrt((np.pi**2)*Dtaa[Bt>0.0091])-(3/(np.pi**2))* \
-                ((np.pi**2)*Dtaa[Bt>0.0091])
-    f[Bt >1.8] = 1 - (6/(np.pi**2))*np.exp(-(np.pi**2)*Dtaa[Bt > 1.8])
+    f = f.at[Bt>0.0091].set((6/(np.pi**(3/2)))*np.sqrt((np.pi**2)*Dtaa[Bt>0.0091])-(3/(np.pi**2))* \
+                ((np.pi**2)*Dtaa[Bt>0.0091]))
+    #f[Bt>0.0091] = (6/(np.pi**(3/2)))*np.sqrt((np.pi**2)*Dtaa[Bt>0.0091])-(3/(np.pi**2))* \
+     #           ((np.pi**2)*Dtaa[Bt>0.0091])
+    f = f.at[Bt>1.8].set(1 - (6/(np.pi**2))*np.exp(-(np.pi**2)*Dtaa[Bt > 1.8]))
+    #f[Bt >1.8] = 1 - (6/(np.pi**2))*np.exp(-(np.pi**2)*Dtaa[Bt > 1.8])
 
     for i in range(1,len(f[1:,:])):
         temp =  f[i,:] - f[i-1,:]
         temp = np.ceil(temp) 
-        f[i,:] = f[i-1,:]*(1-temp) + f[i,:]*temp
+        f = f.at[i,:].set(f[i-1,:]*(1-temp) + f[i,:]*temp)
+        #f[i,:] = f[i-1,:]*(1-temp) + f[i,:]*temp
             
 
 
@@ -289,15 +298,17 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     # As soon as we renormalize. We'll pass this value to the misfit, and make it so that these models are not favorable.
     not_released = np.array(0)
     if np.round(np.sum(f[-1, :]), decimals=3) != ndom: # if the gas released at the end of the experiment isn't 100% for each domain...
-        not_released = (1 - sumf_MDD[-1]) * 10 ** 17 # Return a large misfit that's a function of how far off we were.
+        not_released = (1 - sumf_MDD[-1]) * 10 ** 5 # Return a large misfit that's a function of how far off we were.
 
 
     # Remove the two steps we added, recalculate the total sum, and renormalize.
     newf = np.zeros(sumf_MDD.shape)
-    newf[0] = sumf_MDD[0]
-    newf[1:] = sumf_MDD[1:]-sumf_MDD[0:-1]
+    newf = newf.at[0].set(sumf_MDD[0])
+    #newf[0] = sumf_MDD[0]
+    newf = newf.at[1:].set(sumf_MDD[1:]-sumf_MDD[0:-1])
+    #newf[1:] = sumf_MDD[1:]-sumf_MDD[0:-1]
     newf = newf[2:]
-    normalization_factor = torch.max(torch.cumsum(newf,0))
+    normalization_factor = np.max(np.cumsum(newf, axis=0))
     diffFi= newf/normalization_factor 
 
     # I THINK WE CAN ACTUALLY DITCH THIS CALCULATION FROM HERE DOWN TO INCREASE PERFORMANCE! LET'S DO LATER, THOUGH).
@@ -321,21 +332,31 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
 
     # Calculate Daa from the MDD model using fechtig and kalbitzer
 
-
-    Daa_MDD_a[0] = ((sumf_MDD[0]**2 - 0.**2) * np.pi / (36 * diffti[0]))
+    Daa_MDD_a = Daa_MDD_a.at[0].set(((sumf_MDD[0]**2 - 0.**2) * np.pi / (36 * diffti[0])))
+    #Daa_MDD_a[0] = ((sumf_MDD[0]**2 - 0.**2) * np.pi / (36 * diffti[0]))
 
     # Equation 5a for all other steps
-    Daa_MDD_a[1:] = ((sumf_MDD[1:])**2 - (sumf_MDD[0:-1])**2) * np.pi / (36 * diffti[1:])
+    Daa_MDD_a = Daa_MDD_a.at[1:].set(((sumf_MDD[1:])**2 - (sumf_MDD[0:-1])**2) * np.pi / (36 * diffti[1:]))
+    #Daa_MDD_a[1:] = ((sumf_MDD[1:])**2 - (sumf_MDD[0:-1])**2) * np.pi / (36 * diffti[1:])
 
     # Fechtig and Kalbitzer Equation 5b, for cumulative gas fractions between 10 and 90%
-    Daa_MDD_b[0] = (1 / ((np.pi**2) * tsec[0,0])) * ((2 * np.pi) - ((np.pi * np.pi / 3) * sumf_MDD[0]) \
-                                                - (2 * np.pi) * (np.sqrt(1 - (np.pi/3) * sumf_MDD[0])))
-    Daa_MDD_b[1:] = (1 / ((np.pi**2) * diffti[1:])) * (-(np.pi * np.pi / 3) * diffFi[1:] \
+    Daa_MDD_b = Daa_MDD_b.at[0].set((1 / ((np.pi**2) * tsec[0,0])) * ((2 * np.pi) - ((np.pi * np.pi / 3) * sumf_MDD[0]) \
+                                                - (2 * np.pi) * (np.sqrt(1 - (np.pi/3) * sumf_MDD[0]))))
+    
+    #Daa_MDD_b[0] = (1 / ((np.pi**2) * tsec[0,0])) * ((2 * np.pi) - ((np.pi * np.pi / 3) * sumf_MDD[0]) \
+     #                                           - (2 * np.pi) * (np.sqrt(1 - (np.pi/3) * sumf_MDD[0])))
+    
+    Daa_MDD_b = Daa_MDD_b.at[1:].set((1 / ((np.pi**2) * diffti[1:])) * (-(np.pi * np.pi / 3) * diffFi[1:] \
                                                 - (2 * np.pi) * (np.sqrt(1 - (np.pi/3) * sumf_MDD[1:]) \
-                                                    - np.sqrt(1 - (np.pi/3) * sumf_MDD[0:-1])))
+                                                    - np.sqrt(1 - (np.pi/3) * sumf_MDD[0:-1]))))
+    
+    #Daa_MDD_b[1:] = (1 / ((np.pi**2) * diffti[1:])) * (-(np.pi * np.pi / 3) * diffFi[1:] \
+     #                                           - (2 * np.pi) * (np.sqrt(1 - (np.pi/3) * sumf_MDD[1:]) \
+      #                                              - np.sqrt(1 - (np.pi/3) * sumf_MDD[0:-1])))
 
     # Fechtig and Kalbitzer Equation 5c, for cumulative gas fractions greater than 90%
-    Daa_MDD_c[1:] = (1 / (np.pi * np.pi * diffti[1:])) * (np.log((1 - sumf_MDD[0:-1]) / (1 - sumf_MDD[1:])))
+    Daa_MDD_c = Daa_MDD_c.at[1:].set((1 / (np.pi * np.pi * diffti[1:])) * (np.log((1 - sumf_MDD[0:-1]) / (1 - sumf_MDD[1:]))))
+    #Daa_MDD_c[1:] = (1 / (np.pi * np.pi * diffti[1:])) * (np.log((1 - sumf_MDD[0:-1]) / (1 - sumf_MDD[1:])))
 
     # Decide which equation to use based on the cumulative gas fractions from each step
     use_a = (sumf_MDD <= 0.1) & (sumf_MDD > 0.00000001)

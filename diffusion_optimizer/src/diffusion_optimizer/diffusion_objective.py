@@ -139,7 +139,8 @@ class DiffusionObjective(Objective):
 
         # Return the sum of the residuals
         #misfit = torch.sum(misfit)+not_released_flag
-
+        if math.isnan((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()):
+            breakpoint()
         #return (((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item())/len(data.M))/(10**10)
 
         output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()

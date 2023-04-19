@@ -1,5 +1,5 @@
 import pandas as pd
-import numpy as np
+import jax.numpy as np
 import warnings
 
 class Dataset(pd.DataFrame):
