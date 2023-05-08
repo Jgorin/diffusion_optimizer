@@ -2,11 +2,18 @@ import math
 import numpy as np
 import pandas as pd
 import torch
-import random
-import math as math
 
 
-def D0calc_MonteCarloErrors(data):
+def exponential_interpolation(range, rate, value):
+    if value > 1:
+        return range[1]
+    if value < 0:
+        return range[0]
+    interpolated_value = range[0] * (range[1] / range[0]) ** (rate * value)
+    return interpolated_value
+
+
+def D0calc_MonteCarloErrors(expdata):
     # Function for calculating D0 and D/a^2 from experimental data. Input should be a
     # Pandas DataFrame with columns "TC", "thr",
     # M, and, and delM, which correspond to heating temperature (deg C), 
@@ -14,10 +21,10 @@ def D0calc_MonteCarloErrors(data):
     # M (measured concentration in cps, atoms, or moles), delM (same units)
     
     # Calculate diffusivities from the previous experiment
-    TC = data.loc[:,"TC"].array
-    thr = data.loc[:,"thr"].array
-    M = data.loc[:,"M"].array
-    delM = data.loc[:,"delM"].array
+    TC = expdata.loc[:,"TC"].array
+    thr = expdata.loc[:,"thr"].array
+    M = expdata.loc[:,"M"].array
+    delM = expdata.loc[:,"delM"].array
 
     #Check if units are in minutes and convert from hours to minutes if necesssary
     if thr[1]>4:
@@ -70,8 +77,8 @@ def D0calc_MonteCarloErrors(data):
 
     # Decide which equation to use based on the cumulative gas fractions from each step
     use_a = (Fi<= 0.1) & (Fi> 0.00000001)
-    use_b = (Fi > 0.1) & (Fi<= 0.9)
-    use_c = (Fi > 0.9) & (Fi<= 1.0)
+    use_b = (Fi > 0.1) & (Fi<= 0.85)
+    use_c = (Fi > 0.85) & (Fi<= 1.0)
 
     # Compute the final values
     DR2 = use_a*DR2_a + np.nan_to_num(use_b*DR2_b) + use_c*DR2_c
@@ -106,7 +113,7 @@ def D0calc_MonteCarloErrors(data):
     for i in range(n_sim):
         MCFi[:,i] = MCSi[:,i]/np.amax(MCSi[:,i])
     for i in range(nstep):
-        #delMCFi[i] = (np.amax(MCFi[i,:],0) - np.amin(MCFi[i,:],0))/2
+        delMCFi[i] = (np.amax(MCFi[i,:],0) - np.amin(MCFi[i,:],0))/2
         MCFimean[i] = np.mean(MCFi[i,:],0)
     
     #Initialize vectors
@@ -120,12 +127,8 @@ def D0calc_MonteCarloErrors(data):
     for m in range(1,nstep): #For step of each experiment...
         for n in range(n_sim):
             MCdiffFi[m,n] = MCFi[m,n] - MCFi[m-1,n] #calculate the fraction released at each step
-            MCdiffFi[0,n] = MCFi[0,n]
-    for m in range(0,nstep):
-        delMCFi[m] = np.std(MCdiffFi[m,:])
     for n in range(n_sim): #For each first step of an experiment, insert 0 for previous amount released
         MCDR2_a[0,n] = ((MCFi[m,n])**2 - (MCFi[m-1,n])**2 )*math.pi/(36*(diffti[m-1]))
-        
     for m in range(1,nstep): #Calculate fechtig and kalbitzer equations for each fraction
         for n in range(n_sim):
             MCDR2_a[m,n] = ( (MCFi[m,n])**2 - (MCFi[m-1,n])**2 )*math.pi/(36*(diffti[m-1]));
@@ -133,13 +136,10 @@ def D0calc_MonteCarloErrors(data):
                             - (2*math.pi)*( np.sqrt(1-(math.pi/3)*MCFi[m,n]) \
                             -np.sqrt(1 - (math.pi/3)*MCFi[m-1,n]) ))
             MCDR2_c[m,n] = (1/(math.pi*math.pi*diffti[m-1]))*(np.log((1-MCFi[m-1,n])/(1-MCFi[m,n])));
-    MCdiffFiFinal = np.zeros([nstep])
-    for m in range(0,nstep):
-        MCdiffFiFinal[m] = np.mean(MCdiffFi[m,:])
 
     use_a_MC = (MCFi<= 0.1) & (MCFi> 0.00000001)
-    use_b_MC = (MCFi > 0.1) & (MCFi<= 0.9)
-    use_c_MC = (MCFi > 0.9) & (MCFi<= 1.0) 
+    use_b_MC = (MCFi > 0.1) & (MCFi<= 0.85)
+    use_c_MC = (MCFi > 0.85) & (MCFi<= 1.0) 
 
 
     MCDR2 = use_a_MC*MCDR2_a + np.nan_to_num(use_b_MC*MCDR2_b) + use_c_MC*MCDR2_c
@@ -153,6 +153,7 @@ def D0calc_MonteCarloErrors(data):
                             delMCFi.ravel(), "Daa": DR2,"Daa uncertainty": MCDR2_uncert.ravel(), \
                             "ln(D/a^2)": np.log(DR2),"ln(D/a^2)-del": np.log(DR2-MCDR2_uncert.ravel()), \
                             "ln(D/a^2)+del": np.log(DR2+MCDR2_uncert.ravel()) })
+    
 
 def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     # X: (Ea, lnd0aa_x, fracs_x). To make this compatible with other functions, if there are x fracs, input x-1 fractions, and the code will determine the
@@ -207,7 +208,7 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     # Currently, I'm Manually adding in steps from the irridiation and from the lab storage
 
 
-    seconds_since_irrad = torch.tensor(2003040*60) # seconds
+    seconds_since_irrad = torch.tensor(110937600)  # seconds
     irrad_duration_sec = torch.tensor(5*3600) # in seconds
     irrad_T = torch.tensor(40) # in C
     storage_T = torch.tensor(21.1111111) # in C
@@ -242,14 +243,14 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
     DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
 
-    # # Make the correction for P_D vs D_only
-    # for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
-    #     if DtaaForSum[0,i] <= 1.347419e-17:
-    #         DtaaForSum[0,i] *= 0
-    #     elif DtaaForSum[0,i] >= 4.698221e-06:
-    #         pass
-    #     else:
-    #         DtaaForSum[0,i] *= lookup_table(DtaaForSum[0,i])
+    # Make the correction for P_D vs D_only
+    for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
+        if DtaaForSum[0,i] <= 1.347419e-17:
+            DtaaForSum[0,i] *= 0
+        elif DtaaForSum[0,i] >= 4.698221e-06:
+            pass
+        else:
+            DtaaForSum[0,i] *= lookup_table(DtaaForSum[0,i])
 
     # Calculate Dtaa in cumulative form.
     Dtaa = torch.cumsum(DtaaForSum, axis = 0)
@@ -268,14 +269,7 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
         f[i,:] = f[i-1,:]*(1-temp) + f[i,:]*temp
         
 
-
-
-  
-
-
              #if any negative values when you calculate the frac difference in a single domain
-
-
 
     # Multiply each gas realease by the percent gas located in each domain (prescribed by input)
     f_MDD = f*fracs
@@ -284,8 +278,6 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     # Renormalize everything by first calculating the fractional releases at each step, summing back up, 
     # and then dividing by the max released in each fraction. This simulates how we would have measured and calculated this in the lab.
     sumf_MDD = torch.sum(f_MDD,axis=1)
-
-
 
     # If the second heating step gets gas release all the way to 100%, then the rest of the calculation is not necessary. 
     # Return that sumf_MDD == 0
@@ -307,11 +299,6 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     normalization_factor = torch.max(torch.cumsum(newf,0))
     diffFi= newf/normalization_factor 
 
-    # I THINK WE CAN ACTUALLY DITCH THIS CALCULATION FROM HERE DOWN TO INCREASE PERFORMANCE! LET'S DO LATER, THOUGH).
-    # Calculate the apparent Daa from the MDD using equations of Fechtig and Kalbitzer 
-    Daa_MDD_a = torch.zeros(diffFi.shape)
-    Daa_MDD_b = torch.zeros(diffFi.shape)
-    Daa_MDD_c = torch.zeros(diffFi.shape)
 
     # use equations 5a through c from Fechtig and Kalbitzer for spherical geometry
     # Fechtig and Kalbitzer Equation 5a, for cumulative gas fractions up to 10%
@@ -326,38 +313,4 @@ def forwardModelKinetics(X,data,lookup_table): # (X,data,lookup_table)
     sumf_MDD = torch.cumsum(diffFi,axis=0)
 
 
-    # Calculate Daa from the MDD model using fechtig and kalbitzer
-
-    Daa_MDD_a[0] = ( (sumf_MDD[0]**2 - 0.**2 )*torch.pi/(36*(diffti[0])))
-
-
-    # Equation 5a for all other steps
-
-    Daa_MDD_a[1:] = ((sumf_MDD[1:])**2 - (sumf_MDD[0:-1])**2 )*math.pi/(36*(diffti[1:]))
-
-    # Fechtig and Kalbitzer Equation 5b, for cumulative gas fractions between 10 and 90%
-    Daa_MDD_b[0] = (1/((torch.pi**2)*tsec[0,0]))*((2*torch.pi)-((math.pi*math.pi/3)*sumf_MDD[0])\
-                                        - (2*math.pi)*(torch.sqrt(1-(math.pi/3)*sumf_MDD[0])))
-    Daa_MDD_b[1:] = (1/((math.pi**2)*diffti[1:]))*(-(math.pi*math.pi/3)*diffFi[1:] \
-                                        - (2*math.pi)*( torch.sqrt(1-(math.pi/3)*sumf_MDD[1:]) \
-                                            - torch.sqrt(1 - (math.pi/3)*sumf_MDD[0:-1]) ))
-
-    # Fechtig and Kalbitzer Equation 5c, for cumulative gas fractions greater than 90%
-    Daa_MDD_c[1:] = (1/(math.pi*math.pi*diffti[1:]))*(torch.log((1-sumf_MDD[0:-1])/(1-sumf_MDD[1:])))
-
-    # Decide which equation to use based on the cumulative gas fractions from each step
-    use_a = (sumf_MDD<= 0.1) & (sumf_MDD> 0.00000001)
-    use_b = (sumf_MDD > 0.1) & (sumf_MDD<= 0.9)
-    use_c = (sumf_MDD > 0.9) & (sumf_MDD<= 1.0)
-    Daa_MDD = use_a*Daa_MDD_a + torch.nan_to_num(use_b*Daa_MDD_b) + use_c*Daa_MDD_c
-    
-
-    lnDaa_MDD = torch.log(Daa_MDD)
-
-
-    # for i in range(len(sumf_MDD)):
-    #     if sumf_MDD[i] <0:
-    #         breakpoint()
-
-
-    return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released) #Temperatures, 
+    return ([0],[0],sumf_MDD,[0],not_released) #Temperatures, 

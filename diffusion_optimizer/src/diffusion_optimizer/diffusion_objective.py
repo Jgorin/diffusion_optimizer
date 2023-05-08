@@ -109,7 +109,7 @@ class DiffusionObjective(Objective):
         # have measured any He in the lab. 
         if torch.sum(trueFracMDD) == 0:
 
-            return 10**10
+            return 10**17
         
         #exp_moles = torch.tensor(data.M)
         #total_moles = torch.sum(exp_moles)
@@ -126,8 +126,12 @@ class DiffusionObjective(Objective):
 
         #misfit = torch.abs(exp_moles-moles_MDD)
        
-        misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
-        #misfit = (TrueFracFi-trueFracMDD)**2
+        #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
+
+        exp_moles = torch.tensor(data.M)
+        MDD_moles = 4.000001338E+09*trueFracMDD
+        misfit = (exp_moles-MDD_moles)**2/(torch.tensor(data.delM))
+        #misfit = torch.abs(TrueFracFi-trueFracMDD)
         #misfit = ((TrueFracFi-trueFracMDD)**2)/(1/data.uncert)
 
         # Add a misfit penalty of 1 for each heating step that ran out of gas early.
@@ -135,7 +139,8 @@ class DiffusionObjective(Objective):
         # I NOTICED THAT THIS PROVIDED SOMEWHAT BETTER MODEL BEHAVIOR, THOUGH IT WOULD BE MORE SCIENTIFICALLY SOUND TO 
         # ONLY ASSERT THAT THE LAST STEP WAS ==1.
         #misfit[0:-2][indicesForPunishment] += 1
-        misfit[0:-2][indicesForPunishment] += 1
+
+        misfit[0:-2][indicesForPunishment] += 10**17
 
         # Return the sum of the residuals
         #misfit = torch.sum(misfit)+not_released_flag

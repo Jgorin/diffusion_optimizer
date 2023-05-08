@@ -1,8 +1,8 @@
 import torch as torch
 import numpy as np
 
-def con(X:torch.Tensor): # Input is Ea, lnd0aa_x, Frac_x-1
-
+def conHe_Param(X:torch.Tensor): # Input is Ea, lnd0aa_x, Frac_x-1
+    X = X[1:]
     # CONSTRAING 1: FRACTIONS MUST ADD TO 1
     # Determine number of domains
     if len(X) <= 3:
@@ -21,7 +21,7 @@ def con(X:torch.Tensor): # Input is Ea, lnd0aa_x, Frac_x-1
     for i in range(len(lnD0aa)-1):
         if lnD0aa[i]-lnD0aa[i+1] <= 0:
             lnD0aa_check += lnD0aa[i]-lnD0aa[i+1]
-            
+          
 
 
     return np.array([frac_id,lnD0aa_check])

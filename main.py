@@ -15,7 +15,7 @@ from con import con
 
 def plot_results(params,dataset,objective):
     
-    #params = torch.tensor([92.8597496,19.3075859,16.7392942,13.448396,12.0199871,7.57389364,0.928117128,0.012069709,0.0364852194,0.0225384812])
+    #params = torch.tensor([90,16,14,5,0.73,0.25])
 
     data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr),dataset.np_lnDaa,torch.tensor(dataset.Fi)),objective.lookup_table)
    
@@ -61,6 +61,7 @@ def get_errors(objective, result, norm_dist=1.96, step=1e-5):
 dataset = Dataset(pd.read_csv("/Users/andrewgorin/diffusion_optimizer/main/output/default_output/data4Optimizer.csv"))
 objective = DiffusionObjective(dataset, [],pickle_path = "/Users/andrewgorin/diffusion_optimizer/diffusion_optimizer/src/diffusion_optimizer/lookup_table.pkl")
 
+
 #nlc = NonlinearConstraint(con,lb =[0,-np.inf],ub = [np.inf,0])
 nlc = NonlinearConstraint(con,lb =[0,0],ub = [np.inf,np.inf])
 
@@ -72,20 +73,23 @@ result = differential_evolution(
     objective, 
     [
 
-        (60, 150), 
+        (70, 110), 
         (0, 25), 
         (0,25),
         (0,25),
+
         (0.001,1),
         (0.001,1),
+
+
 
 
     ], 
     disp=True, 
-    tol=0.01,
+ 
 
-    
-    maxiter=100000000000000000,
+    tol = 0.000001,
+    #maxiter=1,
     constraints = nlc
 )
 

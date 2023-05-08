@@ -10,13 +10,14 @@ import torch as torch
 from diffusion_optimizer.utils.utils_3HeParam import forwardModelKinetics
 import matplotlib.pyplot as plt
 from scipy.optimize import NonlinearConstraint
-from con import con
+from conHe_Param import conHe_Param
 
 
 def plot_results(params,dataset,objective):
     tot_moles = params[0]
     params = params[1:]
-    #params = torch.tensor([88.7619142,16.5413564,14.9448063,13.6799605,12.6368934,10.492242,8.73869894,5.87199889,0.438752157,0.140052258,0.158637039,0.150240531,0.050724679,0.0480670674])
+
+  
     data = forwardModelKinetics(params,(torch.tensor(dataset.TC), torch.tensor(dataset.thr),dataset.np_lnDaa,torch.tensor(dataset.Fi)),objective.lookup_table)
     print(data)
     T_plot = 10000/(dataset["TC"]+273.15)
@@ -66,7 +67,7 @@ dataset = Dataset(pd.read_csv("/Users/andrewgorin/diffusion_optimizer/main/outpu
 objective = DiffusionObjective(dataset, [],pickle_path = "/Users/andrewgorin/diffusion_optimizer/diffusion_optimizer/src/diffusion_optimizer/lookup_table.pkl")
 
 #nlc = NonlinearConstraint(con,lb =[0,-np.inf],ub = [np.inf,0])
-nlc = NonlinearConstraint(con,lb =[0,0],ub = [np.inf,np.inf])
+nlc = NonlinearConstraint(conHe_Param,lb =[0,0],ub = [np.inf,np.inf])
 
 
 # There is always one Ea (70,110)
@@ -75,19 +76,18 @@ nlc = NonlinearConstraint(con,lb =[0,0],ub = [np.inf,np.inf])
 result = differential_evolution(
     objective, 
     [
-        (5153057440.31, 5262112341.17),
-        (0, 110), 
-        (0, 25), 
-        (0,25),
-        (0,25),
-        (0,25),
-        (0,25),
-        (0,25),
-        (0.001, 1),
-        (0.001,1),
-        (0.001,1),
-        (0.001,1),
-        (0.001,1)
+        (2510948713- 3*12772561.78 ,  2510948713+ 3*12772561.78  ),
+        (50, 150), 
+        (-15, 25), 
+        (-15,25),
+        (-15,25),
+
+        (0.00,1),
+        (0.00,1),
+
+
+ 
+
 
 
 
@@ -98,10 +98,11 @@ result = differential_evolution(
 
     ], 
     disp=True, 
-    tol=0.000001,
-
-
-    maxiter=100000000000000000,
+    tol=0.001, #4 zeros seems like a good number from testing. slow, but useful.
+    popsize=25,
+    recombination = 0.6,
+    mutation = (0.6,1),
+    maxiter = 100000000,
     constraints = nlc
 )
 

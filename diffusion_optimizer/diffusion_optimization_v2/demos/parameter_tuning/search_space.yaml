@@ -1,0 +1,27 @@
+# threshold to converge
+threshold: 0.01
+max_iters: 20000
+max_sample_cutoff: 15000
+elite_stddev_convergence_threshold: 0.00001
+
+# sample hyperparameter searchspace
+num_samp_max: [800, 1000]         # max number of samples per epoch
+num_samp_ratio: [0.01,0.1]
+num_samp_decay: [0.25, 3]         # decay rate for samples based on best error
+resamp_to_samp_ratio: [0.2, 0.8]  # ratio of samples to resamples
+
+# greedy epsilon hyperparameter searchspace
+epsilon_max: [0.00000001, 0.0000001]         # max greedy epsilon threshold
+epsilon_growth: [0.000000001, 0.00000001]      # growth rate for epsilon threshold based on best error
+epsilon_ratio: [0.0000000001,1]
+
+# List of values to omit during fitting (Added by Drew)
+omit_value_indices: [1,2,3,4,5,6]
+
+limits:                        
+    Ea: [70, 110]
+    LnDaa1: [0, 25]
+    LnD0aa2: [0, 25]
+    LnD0aa3: [0, 25]
+    Frac1: [0.01,1]
+    Frac2: [0.01,1]

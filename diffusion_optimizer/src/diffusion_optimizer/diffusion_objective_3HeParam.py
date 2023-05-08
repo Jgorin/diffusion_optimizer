@@ -7,6 +7,7 @@ class DiffusionObjective(Objective):
     
     # override evaluate function
     def __call__(self, X): #__call__ #evaluate
+
         data = self.dataset
         omitValueIndices = self.omitValueIndices
         torch.pi = torch.acos(torch.zeros(1)).item() * 2
@@ -21,7 +22,7 @@ class DiffusionObjective(Objective):
         # diffusivity of each step is calculated. A residual is calculated as the
         # sum of absolute differences between the observed and modeled release
         # fractions over all steps.
-        
+
         #Time both of these
         X = torch.as_tensor(X)
         total_moles = X[0]
@@ -68,6 +69,7 @@ class DiffusionObjective(Objective):
         #         return lnd0_off_counter.item()
         
         # Forward model the results so that we can calculate the misfit.
+
         fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
 
         # Parameters that need to be read in
@@ -97,11 +99,7 @@ class DiffusionObjective(Objective):
         # 2. I SHOULD CONSIDER IMPLEMENTING A PUNISHMENT WITH A GRADIENT INSTEAD OF A FLAT PUNISHMENT.
         indicesForPunishment = torch.round(Fi_MDD[0:-2],decimals=4) == 1
         ran_out_too_early = torch.tensor(0)
-        if sum(indicesForPunishment>0):
-            ran_out_too_early = sum(indicesForPunishment)
-
-            pass
-
+ 
 
         # Sometimes the forward model predicts kinetics such that ALL the gas would have leaked out during the irradiation and lab storage.
         # In this case, we end up with trueFracMDD == 0, so we should return a high misfit because we know this is not true, else we wouldn't
@@ -118,15 +116,14 @@ class DiffusionObjective(Objective):
         # Production notes... 
         # 1. We should also try the L2 loss
         # 2. We should also consider trying percent loss, since our values span several orders of magnitude. Could maybe even try log fits..
-        #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
-        
+        #misfit = torch.absolute(TrueF  racFi-trueFracMDD) #TrueFracFi is real
+
         moles_MDD = trueFracMDD * total_moles
 
-        misfit = torch.absolute(exp_moles-moles_MDD) #Let's ignore this part for now..
-       
-        #misfit = torch.absolute(TrueFracFi-trueFracMDD) #TrueFracFi is real
-        #misfit = (TrueFracFi-trueFracMDD)**2
-        #misfit = ((TrueFracFi-trueFracMDD)**2)/(1/data.uncert)
+        #misfit = torch.absolute(exp_moles-moles_MDD)/(moles_error) #Let's ignore this part for now..
+
+        misfit = ((exp_moles-moles_MDD)**2)/(data.uncert**2)
+
 
         # Add a misfit penalty of 1 for each heating step that ran out of gas early.
         # THOUGHT: I'M CURENTLY OMITTING THE LAST TWO INDICES INSTEAD OF JUST THE LAST 1.
@@ -134,15 +131,15 @@ class DiffusionObjective(Objective):
         # ONLY ASSERT THAT THE LAST STEP WAS ==1.
         #misfit[0:-2][indicesForPunishment] += 1
         
-        misfit[0:-2][indicesForPunishment] += 10**10
+        #misfit[0:-2][indicesForPunishment] += 10**10
 
         # Return the sum of the residuals
         #misfit = torch.sum(misfit)+not_released_flag
         if math.isnan((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()):
             breakpoint()
 
-        return (((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item())/len(data.M))
-
+        #return torch.log((((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()))+torch.sum(indicesForPunishment)*10**17).item()
+        return torch.log(torch.sum(misfit)).item()
         # output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
         # output = torch.tensor(output,requires_grad=True)
         # return output

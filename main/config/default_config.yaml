@@ -1,4 +1,4 @@
-nameOfInputCSVFile: "MRLA-2-de1-v1.csv"
+nameOfInputCSVFile: "KM95-28-Dc-1250um.csv"
 nameOfExperimentalResultsFile: "data4Optimizer.csv"
 
 # threshold to converge

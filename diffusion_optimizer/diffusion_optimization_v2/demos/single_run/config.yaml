@@ -1,0 +1,26 @@
+maximize: False
+verbose: True
+
+threshold: 0.01
+max_iters: 20000
+
+num_samp_max: 100
+num_samp_ratio: 0.1
+num_samp_decay: 0
+resamp_ratio: 1
+
+omit_value_indices: [] #[1,2,3,4,5,6]
+
+limits:                        
+    Ea:      [50, 150]
+    LnDaa1:  [-10, 35]
+    LnD0aa2: [-10, 35]
+    LnD0aa3: [-10, 35]
+    LnD0aa4: [-10, 35]
+    LnD0aa5: [-10, 35]
+    LnD0aa6: [-10, 35]
+    Frac1:   [0.001,1]
+    Frac2:   [0.001,1]
+    Frac3:   [0.001,1]
+    Frac4:   [0.001,1]
+    Frac5:   [0.001,1]

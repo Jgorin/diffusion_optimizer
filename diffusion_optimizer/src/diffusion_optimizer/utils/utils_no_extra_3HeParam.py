@@ -252,7 +252,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
             ((torch.pi**2)*Dtaa[Bt>0.0091])
     f[Bt >1.8] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[Bt > 1.8])
 
-    
+
     # Multiply each gas realease by the percent gas located in each domain (prescribed by input)
     f_MDD = f*fracs
 
@@ -327,4 +327,5 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
 
     lnDaa_MDD = torch.log(Daa_MDD)
     not_released = 0
+    breakpoint()
     return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released)

@@ -12,12 +12,12 @@ class Dataset(pd.DataFrame):
        # temporarily ignores atribute setting warning from base dataframe class
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            
+   
             self.np_TC = torch.tensor(self["TC"].values) 
             self.np_thr = torch.tensor(self["thr"].values) 
             self.np_lnDaa = torch.tensor(self["ln(D/a^2)"].values) 
             self.np_Fi_exp = torch.tensor(self["Fi"].values)
-            self.uncert = torch.tensor(self["Fi uncertainty"].values)
+            self.uncert = torch.tensor(self["delM"].values)
             self.expected_y = None
 
 

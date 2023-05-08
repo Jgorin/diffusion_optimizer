@@ -205,7 +205,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # that they wont lease any helium during irradiation and storage.
     
     # Currently, I'm Manually adding in steps from the irridiation and from the lab storage
-    seconds_since_irrad = torch.tensor(110937600)  # seconds
+    seconds_since_irrad = torch.tensor(110073600)  # seconds
     irrad_duration_sec = torch.tensor(5*3600) # in seconds
     irrad_T = torch.tensor(40) # in C
     storage_T = torch.tensor(21.1111111) # in C
@@ -240,7 +240,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
     DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
 
-    # Make the correction for P_D vs D_only
+    # # Make the correction for P_D vs D_only
     for i in range(len(DtaaForSum[0,:])): #This is a really short loop... range of i is # domains. Maybe we could vectorize to improve performance?
         if DtaaForSum[0,i] <= 1.347419e-17:
             DtaaForSum[0,i] *= 0
@@ -261,6 +261,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     f[Bt >1.8] = 1 - (6/(torch.pi**2))*torch.exp(-(torch.pi**2)*Dtaa[Bt > 1.8])
 
     
+
     # Multiply each gas realease by the percent gas located in each domain (prescribed by input)
     f_MDD = f*fracs
 
@@ -278,7 +279,6 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # As soon as we renormalize. We'll pass this value to the misfit, and make it so that these models are not favorable.
     not_released = torch.tensor(0)
     if torch.round(torch.sum(f[-1,:]),decimals=3) != ndom: # if the gas released at the end of the experiment isn't 100% for each domain...
-
         not_released = (1-sumf_MDD[-1])*10**17 # Return a large misfit that's a function of how far off we were.
 
     # Remove the two steps we added, recalculate the total sum, and renormalize.
@@ -335,5 +335,6 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     
 
     lnDaa_MDD = torch.log(Daa_MDD)
+
 
     return (TC[2:],lnDaa,sumf_MDD,lnDaa_MDD,not_released)
