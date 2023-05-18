@@ -32,16 +32,10 @@ class DiffusionObjective(Objective):
         total_moles = X[0]
         X = X[1:]
         
-
-        
         # Forward model the results so that we can calculate the misfit.
-        fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
+        Fi_MDD = forwardModelKinetics(X,data,self.lookup_table, self.tsec, self.TC) # Cumulative gas fraction released for each heating step in model experiment    
 
- 
-        Fi_MDD = fwdModelResults[2] # Gas fraction released for each heating step in model experiment
-        
 
-        
         # Calculate the fraction released for each heating step in the modeled experiment
         trueFracMDD = Fi_MDD[1:]-Fi_MDD[0:-1]
         trueFracMDD = torch.concat((torch.unsqueeze(Fi_MDD[0],dim=-1),trueFracMDD),dim=-1)
@@ -58,10 +52,11 @@ class DiffusionObjective(Objective):
 
         misfit = torch.sum(((exp_moles-moles_MDD)**2)/(data.uncert**2))
         #misfit = (exp_moles-moles_MDD)**2
-        if torch.sum(torch.isnan(misfit))>0:
-            print(r"oops! {orch.sum(((exp_moles-torch.zeros([1,len(exp_moles)]))**2)/(data.uncert**2))}")
-            return torch.sum(((exp_moles-torch.zeros([1,len(exp_moles)]))**2)/(data.uncert**2))
-
+        # if torch.sum(torch.isnan(misfit))>0:
+        #     print(r"oops! {orch.sum(((exp_moles-torch.zeros([1,len(exp_moles)]))**2)/(data.uncert**2))}")
+        #     return torch.sum(((exp_moles-torch.zeros([1,len(exp_moles)]))**2)/(data.uncert**2))
+        if np.isnan(misfit):
+            misfit = torch.sum(((exp_moles-np.zeros(len(exp_moles)))**2)/(data.uncert**2))
         return misfit 
 
 
@@ -109,7 +104,7 @@ class DiffusionObjective(Objective):
         #         return lnd0_off_counter.item()
         
         # Forward model the results so that we can calculate the misfit.
-        fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
+        fwdModelResults = forwardModelKinetics(X,data,self.lookup_table, self.time_add, self.temp_add, self.tsec, self.TC)
 
         Fi_MDD = fwdModelResults[2]
         # Calculate the fraction released for each heating step in the modeled experiment

@@ -182,7 +182,7 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     else: # expData is type Dataset.
         TC = expData.np_TC
         thr = expData.np_thr
-        if thr[0] >10: # If values are > 10, then units are likely in minutes, not hours.
+        if thr[0] >4: # If values are > 10, then units are likely in minutes, not hours.
             thr = thr/60
         lnDaa = expData.np_lnDaa
         Fi = expData.np_Fi_exp
@@ -205,10 +205,10 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # that they wont lease any helium during irradiation and storage.
     
     # Currently, I'm Manually adding in steps from the irridiation and from the lab storage
-    seconds_since_irrad = torch.tensor(110073600)  # seconds
-    irrad_duration_sec = torch.tensor(5*3600) # in seconds
-    irrad_T = torch.tensor(40) # in C
-    storage_T = torch.tensor(21.1111111) # in C
+    seconds_since_irrad = torch.tensor(0)  # seconds
+    irrad_duration_sec = torch.tensor(0) # in seconds
+    irrad_T = torch.tensor(0) # in C
+    storage_T = torch.tensor(0) # in C
     
     # Make a tensor with these two extra heating steps in order.
     time_add = torch.tensor([irrad_duration_sec,seconds_since_irrad])
@@ -218,25 +218,31 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     tsec = torch.cat([time_add,thr*3600])
     TC = torch.cat([temp_add,TC])
 
-     
-    # Put time and cumulative time in the correct shape
-    tsec = torch.tile(torch.reshape(tsec,(-1,1)),(1,Ea.shape[1])) #This is a complicated-looking way of getting tsec into a numdom x numstep matrix for multiplication
-    cumtsec = torch.tile(torch.reshape(torch.cumsum(tsec[:,1],dim=0),(-1,1)),(1,Ea.shape[1])) #Same as above, but for cumtsec        
 
-    # Convert TC to TK and put in correct shape for quick computation                                                 
-    TK = torch.tile(torch.reshape((TC + 273.15),(-1,1)),(1,Ea.shape[1])) #This is a complicated-looking way of turning TC from a 1-d array to a 2d array and making two column copies of it
+    # Put time and cumulative time in the correct shape
+    if ndom > 1:
+        tsec = torch.tile(torch.reshape(tsec,(-1,1)),(1,Ea.shape[1])) #This is a complicated-looking way of getting tsec into a numdom x numstep matrix for multiplication
+        cumtsec = torch.tile(torch.reshape(torch.cumsum(tsec[:,1],dim=0),(-1,1)),(1,Ea.shape[1])) #Same as above, but for cumtsec        
+
+        # Convert TC to TK and put in correct shape for quick computation                                                 
+        TK = torch.tile(torch.reshape((TC + 273.15),(-1,1)),(1,Ea.shape[1])) #This is a complicated-looking way of turning TC from a 1-d array to a 2d array and making two column copies of it
+
+    else:
+        cumtsec = torch.reshape(torch.cumsum(tsec,-1),(-1,1))
+        TK = torch.reshape(TC+273.15,(-1,1))
+        tsec = torch.reshape(tsec,(-1,1))
 
     # Calculate D/a^2 for each domain
     Daa = torch.exp(lnD0aa)*torch.exp(-Ea/(R*TK))
-    
 
     # Pre-allocate fraction and Dtaa
     f = torch.zeros(Daa.shape)
     Dtaa = torch.zeros(Daa.shape)
     DtaaForSum = torch.zeros(Daa.shape)
     
-    
+
     # Calculate Dtaa in incremental (not cumulative) form including the added heating steps
+
     DtaaForSum[0,:] = Daa[0,:]*tsec[0,:]
     DtaaForSum[1:,:] = Daa[1:,:]*(cumtsec[1:,:]-cumtsec[0:-1,:])
 
@@ -299,8 +305,9 @@ def forwardModelKinetics(kinetics,expData,lookup_table):
     # Fechtig and Kalbitzer Equation 5a, for cumulative gas fractions up to 10%
     # special case when i = 1; need to insert 0 for previous amount released
 
+
     # Calculate duration for each individual step removing the added steps
-    diffti = cumtsec[1:,1]-cumtsec[0:-1,1]
+    diffti = cumtsec[1:,0]-cumtsec[0:-1,0]
     diffti = torch.concat((torch.unsqueeze(cumtsec[0,0],dim=-1),diffti),dim=-1)
     diffti = diffti[2:]
     

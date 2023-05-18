@@ -13,6 +13,7 @@ from scipy.optimize import NonlinearConstraint
 from conHe_Param import conHe_Param
 
 
+
 def plot_results(params,dataset,objective):
     tot_moles = params[0]
     params = params[1:]
@@ -64,7 +65,10 @@ def get_errors(objective, result, norm_dist=1.96, step=1e-5):
         return None
 
 dataset = Dataset(pd.read_csv("/Users/andrewgorin/diffusion_optimizer/main/output/default_output/data4Optimizer.csv"))
-objective = DiffusionObjective(dataset, [],pickle_path = "/Users/andrewgorin/diffusion_optimizer/diffusion_optimizer/src/diffusion_optimizer/lookup_table.pkl")
+objective = DiffusionObjective(dataset, time_add = torch.tensor([0,0]), temp_add = torch.tensor([0,0]), 
+                               pickle_path = "/Users/andrewgorin/diffusion_optimizer/diffusion_optimizer/src/diffusion_optimizer/lookup_table.pkl",
+                               omitValueIndices= []#[range(18,33)])
+                                )
 
 #nlc = NonlinearConstraint(con,lb =[0,-np.inf],ub = [np.inf,0])
 nlc = NonlinearConstraint(conHe_Param,lb =[0,0],ub = [np.inf,np.inf])
@@ -76,17 +80,22 @@ nlc = NonlinearConstraint(conHe_Param,lb =[0,0],ub = [np.inf,np.inf])
 result = differential_evolution(
     objective, 
     [
-        (2510948713- 3*12772561.78 ,  2510948713+ 3*12772561.78  ),
-        (50, 150), 
-        (-15, 25), 
-        (-15,25),
-        (-15,25),
+        (2156.4 - 0.0001*46.43705417 ,  2156.4 + 00.0001*46.43705417  ),
+        (0,500),
+        (-100, 100), 
+        (-100,100),
+        (-100,100),
+        (-100,100),
+        (-100,100),
+        (-100,100),
+        (0.00001,1),
+        (0.00001,1),
+        (0.00001,1),
+        (0.00001,1),
+        (0.00001,1)
 
-        (0.00,1),
-        (0.00,1),
+  
 
-
- 
 
 
 

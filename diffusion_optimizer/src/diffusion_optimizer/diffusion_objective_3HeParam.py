@@ -69,7 +69,7 @@ class DiffusionObjective(Objective):
         #         return lnd0_off_counter.item()
         
         # Forward model the results so that we can calculate the misfit.
-
+        
         fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
 
         # Parameters that need to be read in
@@ -123,6 +123,7 @@ class DiffusionObjective(Objective):
         #misfit = torch.absolute(exp_moles-moles_MDD)/(moles_error) #Let's ignore this part for now..
 
         misfit = ((exp_moles-moles_MDD)**2)/(data.uncert**2)
+        misfit[omitValueIndices] = 0
 
 
         # Add a misfit penalty of 1 for each heating step that ran out of gas early.
@@ -135,11 +136,14 @@ class DiffusionObjective(Objective):
 
         # Return the sum of the residuals
         #misfit = torch.sum(misfit)+not_released_flag
-        if math.isnan((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()):
-            breakpoint()
+        if torch.isnan(moles_MDD).all():
+
+            return 10**17
+
 
         #return torch.log((((torch.sum(misfit)+not_released_flag).item()+ran_out_too_early.item()))+torch.sum(indicesForPunishment)*10**17).item()
         return torch.log(torch.sum(misfit)).item()
+
         # output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
         # output = torch.tensor(output,requires_grad=True)
         # return output
