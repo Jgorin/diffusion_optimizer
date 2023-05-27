@@ -48,8 +48,7 @@ class DiffusionObjective(Objective):
 
         # Now that we know the fracs add up to one, calculate the fraction for the last domain.
         # This is determined by the other fractions.
-        sumTemp = (1-torch.sum(fracstemp,axis=0,keepdim = True))
-        fracs = torch.concat((fracstemp,sumTemp),dim=-1)
+
 
         # Report high misfit values if conditions are not met
 
@@ -70,43 +69,32 @@ class DiffusionObjective(Objective):
         
         # Forward model the results so that we can calculate the misfit.
         
-        fwdModelResults = forwardModelKinetics(X,data,self.lookup_table)
+        Fi_MDD = forwardModelKinetics(X,self.lookup_table,self.tsec,self.TC) # Gas fraction released for each heating step in model experiment
 
-        # Parameters that need to be read in
-        TC = data.np_TC # Temperature (Celcius)
-        thr = data.np_thr # Time in hours
-        if thr[1]>10: # If time > 10, then units are likely in minutes, not hours-- convert to minutes.
-            thr = thr/60
-        lnDaa = data.np_lnDaa # LnDaa (1/s)
+
+
         Fi_exp = data.np_Fi_exp #Gas fraction released for each heating step in experiment
-        Fi_MDD = fwdModelResults[2] # Gas fraction released for each heating step in model experiment
-        not_released_flag = fwdModelResults[-1] # A flag for when the modeled results don't add to 1 before they get renormalized. This gets added to the misfit.
+
+       
 
         # Calculate the Fraction released for each heating step in the real experiment
         TrueFracFi = (Fi_exp[1:]-Fi_exp[0:-1]) 
         TrueFracFi = torch.concat((torch.unsqueeze(Fi_exp[0],dim=-1),TrueFracFi),dim=-1)
-        
+        if type(Fi_MDD) == tuple:
+
+            breakpoint()
         # Calculate the fraction released for each heating step in the modeled experiment
         trueFracMDD = Fi_MDD[1:]-Fi_MDD[0:-1]
         trueFracMDD = torch.concat((torch.unsqueeze(Fi_MDD[0],dim=-1),trueFracMDD),dim=-1)
+                # Sometimes the forward model predicts kinetics such that ALL the gas would have leaked out during the irradiation and lab storage.
+        # In this case, we end up with trueFracMDD == 0, so we should return a high misfit because we know this is not true, else we wouldn't
+        # have measured any He in the lab. 
+        if torch.sum(trueFracMDD) == 0:
+            return 10**17
        
         # Punish the model if the cumulative gas fraction reaches 1 before the last release step. 
         # II CURRENTLY HAVE THIS OFF, BUT IT SEEMS LIKE THIS MIGHT BE USEFUL AT SOME POINT. Though,
         # maybe it doesn't matter because of my not_released_flag
-
-        #  TWO THINGS HERE. 
-        # 1. I SHOULD EXPERIMENT WITH THE NUMBER OF DECIMALS TO ROUND TO.
-        # 2. I SHOULD CONSIDER IMPLEMENTING A PUNISHMENT WITH A GRADIENT INSTEAD OF A FLAT PUNISHMENT.
-        indicesForPunishment = torch.round(Fi_MDD[0:-2],decimals=4) == 1
-        ran_out_too_early = torch.tensor(0)
- 
-
-        # Sometimes the forward model predicts kinetics such that ALL the gas would have leaked out during the irradiation and lab storage.
-        # In this case, we end up with trueFracMDD == 0, so we should return a high misfit because we know this is not true, else we wouldn't
-        # have measured any He in the lab. 
-        if torch.sum(trueFracMDD) == 0:
-
-            return 10**17
         
         exp_moles = torch.tensor(data.M)
         #total_moles = torch.sum(exp_moles)
@@ -147,3 +135,5 @@ class DiffusionObjective(Objective):
         # output = ((torch.sum(misfit)+not_released_flag)+ran_out_too_early).item()
         # output = torch.tensor(output,requires_grad=True)
         # return output
+
+        

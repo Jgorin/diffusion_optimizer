@@ -20,7 +20,7 @@ class Objective:
             
         self.tsec = torch.cat([time_add,time])
         self.TC = torch.cat([temp_add,self.dataset.np_TC])
-        
+
 
     def evaluate(self, X):
         raise NotImplementedError("Objective must implpement an 'evaluate' method.")
